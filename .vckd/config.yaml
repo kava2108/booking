@@ -1,0 +1,7 @@
+harness:
+  enabled: false
+  AUTO_STEP: false
+  mode: "claude-code-hooks"
+kiro:
+  use_cc_sdd: "auto"
+  kiro_dir: ".kiro"

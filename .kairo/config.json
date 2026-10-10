@@ -1,0 +1,56 @@
+{
+  "kairo_version": "1.0.0",
+  "project": {
+    "name": "booking",
+    "language": "ja",
+    "created_at": "2026-04-11T00:00:00+09:00"
+  },
+  "integrations": {
+    "speckit": false,
+    "github": {
+      "enabled": true,
+      "issue_prefix": "GH"
+    },
+    "uupm": {
+      "enabled": true,
+      "skill_path": ".claude/skills/ui-ux-pro-max",
+      "default_stack": "html-tailwind",
+      "auto_design_system_on_spec_design": true,
+      "persist_design_system": true
+    },
+    "kiro": {
+      "enabled": true,
+      "config_dir": ".kiro"
+    },
+    "design_system": {
+      "enabled": true,
+      "master_path": "design-system/MASTER.md",
+      "auto_generate_on_spec_design": true,
+      "persist": true,
+      "default_stack": "html-tailwind"
+    }
+  },
+  "drift_check": {
+    "threshold": 20,
+    "auto_run_after_implement": true,
+    "design_drift_enabled": true
+  },
+  "review": {
+    "default_personas": ["arch", "security", "qa", "ui"],
+    "adversary_dimensions": ["D1","D2","D3","D4","D5","D6"],
+    "require_checklist_before_merge": true
+  },
+  "imp": {
+    "require_executive_summary": true,
+    "require_rollback_plan": true,
+    "version_scheme": "semver"
+  },
+  "docs": {
+    "base_path": "specs"
+  },
+  "harness": {
+    "enabled": false,
+    "AUTO_STEP": false,
+    "mode": "claude-code-hooks"
+  }
+}
