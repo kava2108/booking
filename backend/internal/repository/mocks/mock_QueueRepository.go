@@ -309,6 +309,63 @@ func (_c *MockQueueRepository_CountAhead_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// CountDoctorsStartingLater provides a mock function with given fields: ctx, arg
+func (_m *MockQueueRepository) CountDoctorsStartingLater(ctx context.Context, arg db.CountDoctorsStartingLaterParams) (int64, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountDoctorsStartingLater")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountDoctorsStartingLaterParams) (int64, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountDoctorsStartingLaterParams) int64); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.CountDoctorsStartingLaterParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockQueueRepository_CountDoctorsStartingLater_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountDoctorsStartingLater'
+type MockQueueRepository_CountDoctorsStartingLater_Call struct {
+	*mock.Call
+}
+
+// CountDoctorsStartingLater is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.CountDoctorsStartingLaterParams
+func (_e *MockQueueRepository_Expecter) CountDoctorsStartingLater(ctx interface{}, arg interface{}) *MockQueueRepository_CountDoctorsStartingLater_Call {
+	return &MockQueueRepository_CountDoctorsStartingLater_Call{Call: _e.mock.On("CountDoctorsStartingLater", ctx, arg)}
+}
+
+func (_c *MockQueueRepository_CountDoctorsStartingLater_Call) Run(run func(ctx context.Context, arg db.CountDoctorsStartingLaterParams)) *MockQueueRepository_CountDoctorsStartingLater_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.CountDoctorsStartingLaterParams))
+	})
+	return _c
+}
+
+func (_c *MockQueueRepository_CountDoctorsStartingLater_Call) Return(_a0 int64, _a1 error) *MockQueueRepository_CountDoctorsStartingLater_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockQueueRepository_CountDoctorsStartingLater_Call) RunAndReturn(run func(context.Context, db.CountDoctorsStartingLaterParams) (int64, error)) *MockQueueRepository_CountDoctorsStartingLater_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CountOnDutyDoctors provides a mock function with given fields: ctx, arg
 func (_m *MockQueueRepository) CountOnDutyDoctors(ctx context.Context, arg db.CountOnDutyDoctorsParams) (int64, error) {
 	ret := _m.Called(ctx, arg)
@@ -362,6 +419,63 @@ func (_c *MockQueueRepository_CountOnDutyDoctors_Call) Return(_a0 int64, _a1 err
 }
 
 func (_c *MockQueueRepository_CountOnDutyDoctors_Call) RunAndReturn(run func(context.Context, db.CountOnDutyDoctorsParams) (int64, error)) *MockQueueRepository_CountOnDutyDoctors_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CountScheduledDoctors provides a mock function with given fields: ctx, arg
+func (_m *MockQueueRepository) CountScheduledDoctors(ctx context.Context, arg db.CountScheduledDoctorsParams) (int64, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountScheduledDoctors")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountScheduledDoctorsParams) (int64, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountScheduledDoctorsParams) int64); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.CountScheduledDoctorsParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockQueueRepository_CountScheduledDoctors_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountScheduledDoctors'
+type MockQueueRepository_CountScheduledDoctors_Call struct {
+	*mock.Call
+}
+
+// CountScheduledDoctors is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.CountScheduledDoctorsParams
+func (_e *MockQueueRepository_Expecter) CountScheduledDoctors(ctx interface{}, arg interface{}) *MockQueueRepository_CountScheduledDoctors_Call {
+	return &MockQueueRepository_CountScheduledDoctors_Call{Call: _e.mock.On("CountScheduledDoctors", ctx, arg)}
+}
+
+func (_c *MockQueueRepository_CountScheduledDoctors_Call) Run(run func(ctx context.Context, arg db.CountScheduledDoctorsParams)) *MockQueueRepository_CountScheduledDoctors_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.CountScheduledDoctorsParams))
+	})
+	return _c
+}
+
+func (_c *MockQueueRepository_CountScheduledDoctors_Call) Return(_a0 int64, _a1 error) *MockQueueRepository_CountScheduledDoctors_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockQueueRepository_CountScheduledDoctors_Call) RunAndReturn(run func(context.Context, db.CountScheduledDoctorsParams) (int64, error)) *MockQueueRepository_CountScheduledDoctors_Call {
 	_c.Call.Return(run)
 	return _c
 }

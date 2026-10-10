@@ -137,6 +137,30 @@ func (q *Queries) CountAhead(ctx context.Context, arg CountAheadParams) (int64, 
 	return count, err
 }
 
+const countDoctorsStartingLater = `-- name: CountDoctorsStartingLater :one
+SELECT count(*) FROM doctors d
+WHERE d.department_id = $1 AND d.active
+  AND EXISTS (
+    SELECT 1 FROM doctor_schedules s
+    WHERE s.doctor_id = d.id
+      AND s.weekday = EXTRACT(DOW FROM ($2::timestamptz AT TIME ZONE 'Asia/Tokyo'))
+      AND s.start_time > ($2::timestamptz AT TIME ZONE 'Asia/Tokyo')::time
+  )
+`
+
+type CountDoctorsStartingLaterParams struct {
+	DepartmentID int64
+	At           pgtype.Timestamptz
+}
+
+// 今日、現在より後に診療が始まるアクティブな医師数（開院前・昼休みの判別用）。
+func (q *Queries) CountDoctorsStartingLater(ctx context.Context, arg CountDoctorsStartingLaterParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countDoctorsStartingLater, arg.DepartmentID, arg.At)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOnDutyDoctors = `-- name: CountOnDutyDoctors :one
 SELECT count(*) FROM doctors d
 WHERE d.department_id = $1 AND d.active
@@ -161,6 +185,32 @@ type CountOnDutyDoctorsParams struct {
 // 現在診療時間内（Asia/Tokyo の曜日・時刻）で、休診でないアクティブな医師数。
 func (q *Queries) CountOnDutyDoctors(ctx context.Context, arg CountOnDutyDoctorsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOnDutyDoctors, arg.DepartmentID, arg.At)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countScheduledDoctors = `-- name: CountScheduledDoctors :one
+SELECT count(*) FROM doctors d
+WHERE d.department_id = $1 AND d.active
+  AND EXISTS (
+    SELECT 1 FROM doctor_schedules s
+    WHERE s.doctor_id = d.id
+      AND s.weekday = EXTRACT(DOW FROM ($2::timestamptz AT TIME ZONE 'Asia/Tokyo'))
+      AND ($2::timestamptz AT TIME ZONE 'Asia/Tokyo')::time >= s.start_time
+      AND ($2::timestamptz AT TIME ZONE 'Asia/Tokyo')::time <  s.end_time
+  )
+`
+
+type CountScheduledDoctorsParams struct {
+	DepartmentID int64
+	At           pgtype.Timestamptz
+}
+
+// 休診を無視して、現在診療時間内（Asia/Tokyo の曜日・時刻）のアクティブな医師数。
+// CountOnDutyDoctors との差で「臨時休診中」を判別する。
+func (q *Queries) CountScheduledDoctors(ctx context.Context, arg CountScheduledDoctorsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countScheduledDoctors, arg.DepartmentID, arg.At)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

@@ -34,7 +34,7 @@ func RenderNotification(kind, recipientName string, payload []byte) (RenderedMai
 	}
 
 	switch kind {
-	case domain.KindAppointmentConfirmed, domain.KindAppointmentCanceled, domain.KindAppointmentRescheduled, domain.KindAppointmentReminder:
+	case domain.KindAppointmentConfirmed, domain.KindAppointmentCanceled, domain.KindAppointmentRescheduled, domain.KindAppointmentReminder, domain.KindClinicClosure:
 		var n domain.AppointmentNotice
 		if err := json.Unmarshal(payload, &n); err != nil {
 			return RenderedMail{}, fmt.Errorf("decode payload: %w", err)
@@ -76,6 +76,13 @@ func renderAppointment(kind, greeting string, n domain.AppointmentNotice) Render
 	case domain.KindAppointmentReminder:
 		subject = "【明日の診察】ご予約のお知らせ"
 		lead = "明日、次の診察のご予約があります。"
+	case domain.KindClinicClosure:
+		// 休診の理由(スタッフの自由記述)は意図しない情報を含み得るため、定型文のみとする
+		subject = "【休診のお知らせ】ご予約の診察日は休診となりました"
+		lead = "ご予約の診察日時が休診となりました。ご不便をおかけし申し訳ありません。"
+		body := greeting + "\n\n" + lead + "\n\n" + details + "\n" +
+			"お手数ですが、予約画面から別の日時をご予約いただくか、医療機関までご連絡ください。\n"
+		return RenderedMail{Subject: subject, Body: body}
 	}
 	body := greeting + "\n\n" + lead + "\n\n" + details + "\n" +
 		"体調や予定が変わった場合は、予約画面から変更・キャンセルできます(期限があります)。\n" +

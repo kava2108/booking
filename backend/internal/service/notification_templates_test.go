@@ -135,3 +135,15 @@ func TestRender_EmptyNameFallsBack(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, m.Body, "患者様")
 }
+
+// IMP 16: 休診のお知らせ
+func TestRender_ClinicClosure(t *testing.T) {
+	m, err := service.RenderNotification(domain.KindClinicClosure, "山田 太郎", noticePayload(t, nil))
+	require.NoError(t, err)
+
+	assert.Contains(t, m.Subject, "休診")
+	for _, want := range []string{"山田 太郎 様", "A-20261019-0042", "2026年10月19日(月) 09:30", "内科", "休診"} {
+		assert.Contains(t, m.Body, want)
+	}
+	assert.Contains(t, m.Body, "別の日時", "再予約を案内する")
+}

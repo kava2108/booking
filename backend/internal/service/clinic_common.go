@@ -1,6 +1,11 @@
 package service
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+)
 
 // ClinicOption は clinic-reservation の service 共通の設定（時刻の差し替えなど）。
 type ClinicOption func(*clinicOptions)
@@ -34,3 +39,5 @@ func (e *ValidationError) Error() string { return "validation failed" }
 func validationError(field, msg string) *ValidationError {
 	return &ValidationError{Fields: []FieldError{{Field: field, Message: msg}}}
 }
+
+func pgUUID(id uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: id, Valid: true} }

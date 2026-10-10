@@ -40,9 +40,12 @@ WHERE a.patient_id = sqlc.arg(patient_id) AND a.status = 'booked' AND s.start_at
 
 -- name: ListBookedAppointmentsForNotice :many
 -- 休診の影響を受ける予約者（REQ-005-AC-3）。doctor_id NULL なら全医師。
-SELECT a.id, a.appointment_no, a.patient_id, s.start_at
+-- 通知の作成に必要な枠 ID・診療科名・医師名を含む。
+SELECT a.id, a.appointment_no, a.patient_id, s.id AS slot_id, s.start_at, d.name AS department_name, dr.name AS doctor_name
 FROM appointments a
-JOIN slots s ON s.id = a.slot_id
+JOIN slots s       ON s.id = a.slot_id
+JOIN departments d ON d.id = s.department_id
+JOIN doctors dr    ON dr.id = s.doctor_id
 WHERE a.status = 'booked'
   AND (sqlc.narg(doctor_id)::bigint IS NULL OR s.doctor_id = sqlc.narg(doctor_id))
   AND s.start_at >= sqlc.arg(from_at)

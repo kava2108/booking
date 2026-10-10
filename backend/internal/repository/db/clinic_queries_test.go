@@ -264,6 +264,10 @@ func TestListBookedAppointmentsForNotice(t *testing.T) {
 	require.Len(t, rows, 1)
 	assert.Equal(t, "A-1", rows[0].AppointmentNo)
 	assert.Equal(t, e.patient1.ID, rows[0].PatientID)
+	// IMP 16: 通知の作成に必要な項目（枠 ID・診療科名・医師名）
+	assert.Equal(t, s1.ID, rows[0].SlotID)
+	assert.Equal(t, "内科", rows[0].DepartmentName)
+	assert.Equal(t, "山田", rows[0].DoctorName)
 }
 
 // ---------- queue (REQ-005, 008, 004) ----------
@@ -926,4 +930,49 @@ func TestListQueueEntriesNeedingNearNotice(t *testing.T) {
 	for _, r := range list(10) {
 		assert.NotEqual(t, called.ID, r.ID, "呼出済みは対象外")
 	}
+}
+
+// ---------- IMP 15-clinic-reservation-wait-time-api ----------
+
+// 休診と診療時間外の区別: 休診は「診療時間内だが休診」、開始前は「今日この後に診療が始まる」
+func TestScheduledAndLaterDoctors(t *testing.T) {
+	e := newClinicEnv(t)
+	for _, sch := range [][2]string{{"09:00", "12:00"}, {"14:00", "17:00"}} {
+		_, err := e.pool.Exec(e.ctx, `INSERT INTO doctor_schedules(doctor_id,weekday,start_time,end_time,slot_minutes,capacity) VALUES ($1,1,$2,$3,30,1)`, e.doctorID, sch[0], sch[1])
+		require.NoError(t, err)
+	}
+	scheduled := func(tm time.Time) int64 {
+		n, err := e.q.CountScheduledDoctors(e.ctx, db.CountScheduledDoctorsParams{DepartmentID: e.deptID, At: ts(tm)})
+		require.NoError(t, err)
+		return n
+	}
+	later := func(tm time.Time) int64 {
+		n, err := e.q.CountDoctorsStartingLater(e.ctx, db.CountDoctorsStartingLaterParams{DepartmentID: e.deptID, At: ts(tm)})
+		require.NoError(t, err)
+		return n
+	}
+
+	assert.EqualValues(t, 1, scheduled(at(10, 0)))
+	assert.EqualValues(t, 0, scheduled(at(12, 0)), "終了ちょうどは時間外")
+	assert.EqualValues(t, 0, scheduled(at(13, 0)), "昼休み")
+	assert.EqualValues(t, 1, later(at(8, 0)), "開院前: この後に始まる")
+	assert.EqualValues(t, 1, later(at(13, 0)), "昼休み: 午後が始まる")
+	assert.EqualValues(t, 0, later(at(17, 0)), "診療終了後")
+	assert.EqualValues(t, 1, later(at(8, 59)))
+	assert.EqualValues(t, 1, later(at(13, 59)))
+	assert.EqualValues(t, 0, later(at(14, 0)), "開始ちょうどは「この後」ではなく診療中")
+	assert.EqualValues(t, 0, scheduled(at(10, 0).AddDate(0, 0, 1)), "火曜は診療なし")
+
+	// 休診の影響: scheduled は休診を無視、CountOnDutyDoctors は休診を除く
+	require.NoError(t, e.q.CreateClosure(e.ctx, db.CreateClosureParams{DoctorID: pgtype.Int8{Int64: e.doctorID, Valid: true}, FromAt: ts(at(9, 0)), ToAt: ts(at(12, 0)), Reason: "学会"}))
+	assert.EqualValues(t, 1, scheduled(at(10, 0)), "休診でも診療時間内として数える")
+	n, err := e.q.CountOnDutyDoctors(e.ctx, db.CountOnDutyDoctorsParams{DepartmentID: e.deptID, At: ts(at(10, 0))})
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, n)
+
+	// 非アクティブな医師は数えない
+	_, err = e.pool.Exec(e.ctx, `UPDATE doctors SET active=false`)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, scheduled(at(10, 0)))
+	assert.EqualValues(t, 0, later(at(8, 0)))
 }

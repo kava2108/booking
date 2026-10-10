@@ -286,9 +286,11 @@ func (q *Queries) ListAppointmentsNeedingReminder(ctx context.Context, arg ListA
 }
 
 const listBookedAppointmentsForNotice = `-- name: ListBookedAppointmentsForNotice :many
-SELECT a.id, a.appointment_no, a.patient_id, s.start_at
+SELECT a.id, a.appointment_no, a.patient_id, s.id AS slot_id, s.start_at, d.name AS department_name, dr.name AS doctor_name
 FROM appointments a
-JOIN slots s ON s.id = a.slot_id
+JOIN slots s       ON s.id = a.slot_id
+JOIN departments d ON d.id = s.department_id
+JOIN doctors dr    ON dr.id = s.doctor_id
 WHERE a.status = 'booked'
   AND ($1::bigint IS NULL OR s.doctor_id = $1)
   AND s.start_at >= $2
@@ -303,13 +305,17 @@ type ListBookedAppointmentsForNoticeParams struct {
 }
 
 type ListBookedAppointmentsForNoticeRow struct {
-	ID            uuid.UUID
-	AppointmentNo string
-	PatientID     uuid.UUID
-	StartAt       pgtype.Timestamptz
+	ID             uuid.UUID
+	AppointmentNo  string
+	PatientID      uuid.UUID
+	SlotID         uuid.UUID
+	StartAt        pgtype.Timestamptz
+	DepartmentName string
+	DoctorName     string
 }
 
 // 休診の影響を受ける予約者（REQ-005-AC-3）。doctor_id NULL なら全医師。
+// 通知の作成に必要な枠 ID・診療科名・医師名を含む。
 func (q *Queries) ListBookedAppointmentsForNotice(ctx context.Context, arg ListBookedAppointmentsForNoticeParams) ([]ListBookedAppointmentsForNoticeRow, error) {
 	rows, err := q.db.Query(ctx, listBookedAppointmentsForNotice, arg.DoctorID, arg.FromAt, arg.ToAt)
 	if err != nil {
@@ -323,7 +329,10 @@ func (q *Queries) ListBookedAppointmentsForNotice(ctx context.Context, arg ListB
 			&i.ID,
 			&i.AppointmentNo,
 			&i.PatientID,
+			&i.SlotID,
 			&i.StartAt,
+			&i.DepartmentName,
+			&i.DoctorName,
 		); err != nil {
 			return nil, err
 		}

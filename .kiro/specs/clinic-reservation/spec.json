@@ -107,6 +107,36 @@
       "url": "https://github.com/kava2108/booking/issues/14",
       "title": "[clinic-reservation] 通知基盤（アウトボックス・メール・リマインド）",
       "created_at": "2026-10-10T16:59:27+09:00"
+    },
+    {
+      "id": "15-clinic-reservation-wait-time-api",
+      "gh_number": 15,
+      "task_ref": "3.1",
+      "wave": "P2",
+      "status": "pending",
+      "url": "https://github.com/kava2108/booking/issues/15",
+      "title": "[clinic-reservation] 待ち時間算出と公開 API",
+      "created_at": "2026-10-10T18:27:25+09:00"
+    },
+    {
+      "id": "16-clinic-reservation-closures",
+      "gh_number": 16,
+      "task_ref": "3.2",
+      "wave": "P2",
+      "status": "pending",
+      "url": "https://github.com/kava2108/booking/issues/16",
+      "title": "[clinic-reservation] 休診・医師不在の設定",
+      "created_at": "2026-10-10T18:27:27+09:00"
+    },
+    {
+      "id": "17-clinic-reservation-frontend-booking",
+      "gh_number": 17,
+      "task_ref": "3.3",
+      "wave": "P2",
+      "status": "pending",
+      "url": "https://github.com/kava2108/booking/issues/17",
+      "title": "[clinic-reservation] フロント: 検索・予約・マイページ",
+      "created_at": "2026-10-10T18:27:29+09:00"
     }
   ]
 }

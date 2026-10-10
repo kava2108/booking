@@ -33,6 +33,8 @@ type Deps struct {
 	Appointments service.AppointmentService // 患者の予約（Tokens が必要）
 	Queue        service.QueueService       // 待機列・スタッフ操作・当日受付（Tokens と Audit が必要）
 	Audit        middleware.AuditRecorder   // 個人情報参照の監査ログ書き込み先
+	WaitTime     service.WaitTimeService    // 待ち時間（公開）と本人の順番（Tokens があれば）
+	Closures     service.ClosureService     // 休診・医師不在の設定（Tokens が必要）
 }
 
 // New は Echo を組み立てる。
@@ -89,12 +91,22 @@ func New(d Deps) *echo.Echo {
 	if d.Appointments != nil && d.Tokens != nil {
 		handler.NewAppointmentHandler(d.Appointments).Routes(v1, middleware.JWTAuth(d.Tokens))
 	}
+	if d.WaitTime != nil {
+		var jwt echo.MiddlewareFunc
+		if d.Tokens != nil {
+			jwt = middleware.JWTAuth(d.Tokens)
+		}
+		handler.NewWaitTimeHandler(d.WaitTime).Routes(v1, rl.Public, jwt)
+	}
 	if d.Queue != nil && d.Tokens != nil && d.Audit != nil {
 		jwt := middleware.JWTAuth(d.Tokens)
 		qh := handler.NewQueueHandler(d.Queue)
 		qh.PatientRoutes(v1, jwt)
 		audit := middleware.AuditLog(d.Audit, "view_staff_queue", func(c echo.Context) string { return "department:" + c.QueryParam("department_id") })
 		qh.StaffRoutes(v1.Group("/staff"), jwt, middleware.StaffOnly(), audit)
+	}
+	if d.Closures != nil && d.Tokens != nil {
+		handler.NewClosureHandler(d.Closures).Routes(v1.Group("/staff"), middleware.JWTAuth(d.Tokens), middleware.StaffOnly())
 	}
 	if d.Admin != nil && d.Tokens != nil {
 		handler.NewAdminHandler(d.Admin).Routes(v1.Group("/admin"), middleware.JWTAuth(d.Tokens), middleware.AdminOnly())

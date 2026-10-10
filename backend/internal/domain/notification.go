@@ -7,6 +7,7 @@ const (
 	KindAppointmentConfirmed   = "appointment_confirmed"
 	KindAppointmentCanceled    = "appointment_canceled"
 	KindAppointmentRescheduled = "appointment_rescheduled"
+	KindClinicClosure          = "clinic_closure" // 休診で影響を受ける予約者へのお知らせ（payload は AppointmentNotice）
 )
 
 // AppointmentNotice は予約関連通知の payload。

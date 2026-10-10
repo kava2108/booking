@@ -27,10 +27,15 @@ type Querier interface {
 	CountActiveQueueEntriesForPatient(ctx context.Context, arg CountActiveQueueEntriesForPatientParams) (int64, error)
 	// 自分（sort_time）より前にいる人数。診察中も含め、完了・キャンセルは含めない。
 	CountAhead(ctx context.Context, arg CountAheadParams) (int64, error)
+	// 今日、現在より後に診療が始まるアクティブな医師数（開院前・昼休みの判別用）。
+	CountDoctorsStartingLater(ctx context.Context, arg CountDoctorsStartingLaterParams) (int64, error)
 	// 現在診療時間内（Asia/Tokyo の曜日・時刻）で、休診でないアクティブな医師数。
 	CountOnDutyDoctors(ctx context.Context, arg CountOnDutyDoctorsParams) (int64, error)
 	// 同一時刻に有効な予約を持つか（REQ-002-AC-5）
 	CountPatientBookingsAt(ctx context.Context, arg CountPatientBookingsAtParams) (int64, error)
+	// 休診を無視して、現在診療時間内（Asia/Tokyo の曜日・時刻）のアクティブな医師数。
+	// CountOnDutyDoctors との差で「臨時休診中」を判別する。
+	CountScheduledDoctors(ctx context.Context, arg CountScheduledDoctorsParams) (int64, error)
 	CountWaiting(ctx context.Context, arg CountWaitingParams) (int64, error)
 	// 当日受付の定員判定用（キャンセル済みと予約由来は数えない）。
 	CountWalkInsForDate(ctx context.Context, arg CountWalkInsForDateParams) (int64, error)
@@ -79,6 +84,7 @@ type Querier interface {
 	// 診療日が [from_at, to_at) の有効な予約のうち、リマインド未登録のもの。
 	ListAppointmentsNeedingReminder(ctx context.Context, arg ListAppointmentsNeedingReminderParams) ([]ListAppointmentsNeedingReminderRow, error)
 	// 休診の影響を受ける予約者（REQ-005-AC-3）。doctor_id NULL なら全医師。
+	// 通知の作成に必要な枠 ID・診療科名・医師名を含む。
 	ListBookedAppointmentsForNotice(ctx context.Context, arg ListBookedAppointmentsForNoticeParams) ([]ListBookedAppointmentsForNoticeRow, error)
 	// 終了が基準時刻より後の休診。枠生成時に既存の休診期間を再適用するために使う。
 	ListClosuresFrom(ctx context.Context, after pgtype.Timestamptz) ([]ListClosuresFromRow, error)

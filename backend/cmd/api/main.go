@@ -74,6 +74,8 @@ func run(logger zerolog.Logger) error {
 	admin := service.NewAdminService(repos, store, slots)
 	appointments := service.NewAppointmentService(repos, store)
 	queue := service.NewQueueService(repos, store)
+	waitTime := service.NewWaitTimeService(repos)
+	closures := service.NewClosureService(repos, store)
 
 	// バックグラウンドジョブ。停止時は ctx が終了するのを待つ。
 	var jobs sync.WaitGroup
@@ -94,7 +96,7 @@ func run(logger zerolog.Logger) error {
 		Addr: fmt.Sprintf(":%d", cfg.ServerPort),
 		Handler: app.New(app.Deps{
 			Config: cfg, Logger: logger, Auth: svc, Tokens: tm,
-			Slots: slots, Admin: admin, Appointments: appointments, Queue: queue, Audit: repos.Admin,
+			Slots: slots, Admin: admin, Appointments: appointments, Queue: queue, Audit: repos.Admin, WaitTime: waitTime, Closures: closures,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

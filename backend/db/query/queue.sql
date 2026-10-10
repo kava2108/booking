@@ -119,3 +119,27 @@ WHERE q.service_date = sqlc.arg(service_date) AND q.status = 'waiting' AND q.pat
     WHERE n.kind = 'queue_near' AND n.payload ->> 'queue_entry_id' = q.id::text
   )
 ORDER BY q.sort_time;
+
+-- name: CountScheduledDoctors :one
+-- 休診を無視して、現在診療時間内（Asia/Tokyo の曜日・時刻）のアクティブな医師数。
+-- CountOnDutyDoctors との差で「臨時休診中」を判別する。
+SELECT count(*) FROM doctors d
+WHERE d.department_id = sqlc.arg(department_id) AND d.active
+  AND EXISTS (
+    SELECT 1 FROM doctor_schedules s
+    WHERE s.doctor_id = d.id
+      AND s.weekday = EXTRACT(DOW FROM (sqlc.arg(at)::timestamptz AT TIME ZONE 'Asia/Tokyo'))
+      AND (sqlc.arg(at)::timestamptz AT TIME ZONE 'Asia/Tokyo')::time >= s.start_time
+      AND (sqlc.arg(at)::timestamptz AT TIME ZONE 'Asia/Tokyo')::time <  s.end_time
+  );
+
+-- name: CountDoctorsStartingLater :one
+-- 今日、現在より後に診療が始まるアクティブな医師数（開院前・昼休みの判別用）。
+SELECT count(*) FROM doctors d
+WHERE d.department_id = sqlc.arg(department_id) AND d.active
+  AND EXISTS (
+    SELECT 1 FROM doctor_schedules s
+    WHERE s.doctor_id = d.id
+      AND s.weekday = EXTRACT(DOW FROM (sqlc.arg(at)::timestamptz AT TIME ZONE 'Asia/Tokyo'))
+      AND s.start_time > (sqlc.arg(at)::timestamptz AT TIME ZONE 'Asia/Tokyo')::time
+  );

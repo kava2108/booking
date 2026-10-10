@@ -71,9 +71,11 @@ func newClinicApp(t *testing.T, mutate func(*config.Config)) *clinicApp {
 	admin := service.NewAdminService(repos, store, slots, service.WithClinicClock(now))
 	appts := service.NewAppointmentService(repos, store, service.WithClinicClock(now))
 	queue := service.NewQueueService(repos, store, service.WithClinicClock(now))
+	wait := service.NewWaitTimeService(repos, service.WithClinicClock(now))
+	closures := service.NewClosureService(repos, store, service.WithClinicClock(now))
 
 	a := &clinicApp{t: t, pool: pool, tm: tm, logs: logs, clock: &clock}
-	a.e = app.New(app.Deps{Config: cfg, Logger: zerolog.New(logs), Tokens: tm, Slots: slots, Admin: admin, Appointments: appts, Queue: queue, Audit: repos.Admin})
+	a.e = app.New(app.Deps{Config: cfg, Logger: zerolog.New(logs), Tokens: tm, Slots: slots, Admin: admin, Appointments: appts, Queue: queue, Audit: repos.Admin, WaitTime: wait, Closures: closures})
 	a.router = loadRouter(t)
 
 	require.NoError(t, pool.QueryRow(context.Background(), `INSERT INTO departments(name, standard_consult_minutes) VALUES ('内科', 10) RETURNING id`).Scan(&a.deptID))

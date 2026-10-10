@@ -57,6 +57,9 @@ type QueueRepository interface {
 	CountWaiting(ctx context.Context, arg db.CountWaitingParams) (int64, error)
 	RecentConsultSeconds(ctx context.Context, arg db.RecentConsultSecondsParams) ([]float64, error)
 	CountOnDutyDoctors(ctx context.Context, arg db.CountOnDutyDoctorsParams) (int64, error)
+	// CountScheduledDoctors は休診を無視した診療時間内の医師数、CountDoctorsStartingLater は今日この後に診療が始まる医師数。
+	CountScheduledDoctors(ctx context.Context, arg db.CountScheduledDoctorsParams) (int64, error)
+	CountDoctorsStartingLater(ctx context.Context, arg db.CountDoctorsStartingLaterParams) (int64, error)
 	// ListStaffQueue は氏名・症状メモを含むためスタッフ専用。公開 API では使わない。
 	ListStaffQueue(ctx context.Context, arg db.ListStaffQueueParams) ([]db.ListStaffQueueRow, error)
 	GetQueueEntryForPatient(ctx context.Context, arg db.GetQueueEntryForPatientParams) (db.QueueEntry, error)
