@@ -21,5 +21,5 @@ type PublicKeys = keyof DepartmentWaitTime;
 export type _NoPatientName = Expect<Equals<Extract<PublicKeys, 'patient_name' | 'symptom_note' | 'display_name'>, never>>;
 
 // visit_type は first / revisit のみ（不正値はコンパイルエラー）
-// @ts-expect-error
+// @ts-expect-error 不正な visit_type はコンパイルエラーになる
 export const bad: CreateAppointmentRequest = { slot_id: 'x', visit_type: 'other' };

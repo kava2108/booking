@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+/* デザイントークン: design-system/MASTER.md（Teal = 信頼、Amber = 予約などの主要 CTA） */
+@theme {
+  --font-sans: 'Inter', 'Noto Sans JP', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+
+  --color-primary-50: #eff9f8;
+  --color-primary-100: #d0efec;
+  --color-primary-200: #a3ddd7;
+  --color-primary-300: #6ac5bc;
+  --color-primary-400: #3aada3;
+  --color-primary-500: #0d9488;
+  --color-primary-600: #0b7a70;
+  --color-primary-700: #085e57;
+  --color-primary-800: #05413c;
+  --color-primary-900: #022520;
+
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+  --color-accent-700: #b45309;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  background: #f9fafb;
+  color: #1f2937;
+}
+
+/* キーボード操作の可視化（WCAG 2.1 AA） */
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
