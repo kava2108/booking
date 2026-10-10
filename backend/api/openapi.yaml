@@ -1,0 +1,690 @@
+openapi: 3.0.3
+info:
+  title: Clinic Reservation API
+  version: 0.1.0
+  description: |
+    病院・クリニック向け予約と待ち時間表示の REST API。
+    設計書 .kiro/specs/clinic-reservation/design.md §API Design が正。
+    フロントエンドの型はこの定義から openapi-typescript で生成する（手書き禁止）。
+    `x-required-roles` は実装側の権限マトリクス（internal/middleware.StaffOnly / AdminOnly）と一致させる。
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: catalog
+    description: 診療科・医師・空き枠（認証不要）
+  - name: appointments
+    description: 患者の予約
+  - name: waittime
+    description: 待ち時間
+  - name: walkin
+    description: 当日受付
+  - name: staff
+    description: 受付スタッフ（staff / clinic_admin）
+  - name: admin
+    description: クリニック管理者（clinic_admin）
+paths:
+  /api/departments:
+    get:
+      tags: [catalog]
+      summary: 診療科一覧
+      operationId: listDepartments
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Department"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/doctors:
+    get:
+      tags: [catalog]
+      summary: 医師一覧
+      operationId: listDoctors
+      security: []
+      parameters:
+        - name: department_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Doctor"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/slots:
+    get:
+      tags: [catalog]
+      summary: 空き枠検索
+      operationId: listSlots
+      description: "満席・休診・締切後の枠も available=false として返す。"
+      security: []
+      parameters:
+        - name: department_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: doctor_id
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Slot"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/appointments:
+    post:
+      tags: [appointments]
+      summary: 予約確定
+      operationId: createAppointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppointmentRequest"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/appointments/me:
+    get:
+      tags: [appointments]
+      summary: 自分の予約一覧
+      operationId: listMyAppointments
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppointmentSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/appointments/{id}:
+    patch:
+      tags: [appointments]
+      summary: 予約の日時変更
+      operationId: rescheduleAppointment
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    delete:
+      tags: [appointments]
+      summary: 予約キャンセル
+      operationId: cancelAppointment
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/appointments/{id}/position:
+    get:
+      tags: [waittime]
+      summary: 自分の順番と呼出見込み
+      operationId: getMyPosition
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Position"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/wait-times:
+    get:
+      tags: [waittime]
+      summary: 診療科別の現在の待ち時間
+      operationId: getWaitTimes
+      description: 未ログイン可。個人情報を含まない。サーバー側で 10 秒キャッシュ。
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitTimesResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/walk-ins:
+    post:
+      tags: [walkin]
+      summary: 当日受付（患者本人）
+      operationId: createWalkIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalkInRequest"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkInTicket"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/staff/walk-ins:
+    post:
+      tags: [staff]
+      summary: 当日受付（スタッフ代行・無アカウント可）
+      operationId: createStaffWalkIn
+      x-required-roles: [staff, clinic_admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffWalkInRequest"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkInTicket"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/staff/queue:
+    get:
+      tags: [staff]
+      summary: 待機列（氏名・症状メモを含む）
+      operationId: listStaffQueue
+      description: 個人情報を含むため監査ログに記録される。
+      x-required-roles: [staff, clinic_admin]
+      parameters:
+        - name: department_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffQueueEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/staff/queue/{id}/check-in:
+    post:
+      tags: [staff]
+      summary: 予約患者の来院受付
+      operationId: checkInQueueEntry
+      x-required-roles: [staff, clinic_admin]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/staff/queue/{id}/call:
+    post:
+      tags: [staff]
+      summary: 呼出
+      operationId: callQueueEntry
+      x-required-roles: [staff, clinic_admin]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/staff/queue/{id}/start:
+    post:
+      tags: [staff]
+      summary: 診察開始
+      operationId: startQueueEntry
+      x-required-roles: [staff, clinic_admin]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/staff/queue/{id}/complete:
+    post:
+      tags: [staff]
+      summary: 診察完了
+      operationId: completeQueueEntry
+      x-required-roles: [staff, clinic_admin]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/staff/closures:
+    post:
+      tags: [staff]
+      summary: 休診・医師不在の設定
+      operationId: createClosure
+      description: 該当枠を closed にし、既存予約者へ通知を登録する。
+      x-required-roles: [staff, clinic_admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosureRequest"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClosureResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/admin/schedules:
+    put:
+      tags: [admin]
+      summary: 診療時間・枠長・定員の設定と枠生成
+      operationId: putSchedules
+      x-required-roles: [clinic_admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchedulesRequest"
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/admin/settings:
+    put:
+      tags: [admin]
+      summary: 受付期間・キャンセル期限・標準診察時間
+      operationId: putSettings
+      x-required-roles: [clinic_admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: 不正なリクエスト
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unauthorized:
+      description: 未認証
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: 権限不足
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: 見つからない（他人のリソースも 404 とする）
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: 競合（満席 slot_full / 重複 duplicate_appointment / 不正な状態遷移 invalid_transition）
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unprocessable:
+      description: 入力不正または業務ルール違反（cancel_deadline_passed / walkin_closed など）
+      content: { application/json: { schema: { $ref: "#/components/schemas/ValidationError" } } }
+    TooManyRequests:
+      description: レートリミット超過
+      headers:
+        Retry-After: { schema: { type: integer }, description: 再試行までの秒数 }
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: slot_full }
+        message: { type: string, example: この枠は満席になりました。別の枠をお選びください }
+    ValidationError:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        message: { type: string }
+        fields:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+    Department:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+    Doctor:
+      type: object
+      required: [id, department_id, name]
+      properties:
+        id: { type: integer, format: int64 }
+        department_id: { type: integer, format: int64 }
+        name: { type: string }
+    Slot:
+      type: object
+      required: [id, doctor_id, start_at, available]
+      properties:
+        id: { type: string, format: uuid }
+        doctor_id: { type: integer, format: int64 }
+        start_at: { type: string, format: date-time }
+        available: { type: boolean }
+        unavailable_reason:
+          type: string
+          enum: [full, closed, past_cutoff]
+    CreateAppointmentRequest:
+      type: object
+      required: [slot_id, visit_type]
+      properties:
+        slot_id: { type: string, format: uuid }
+        visit_type: { type: string, enum: [first, revisit] }
+        symptom_note: { type: string, maxLength: 1000, description: 要配慮個人情報。本人とスタッフのみ参照可 }
+    RescheduleRequest:
+      type: object
+      required: [slot_id]
+      properties:
+        slot_id: { type: string, format: uuid }
+    Appointment:
+      type: object
+      required: [id, appointment_no, slot_start, department, doctor]
+      properties:
+        id: { type: string, format: uuid }
+        appointment_no: { type: string, example: A-20261012-0042 }
+        slot_start: { type: string, format: date-time }
+        department: { type: string }
+        doctor: { type: string }
+    AppointmentSummary:
+      type: object
+      required: [id, appointment_no, slot_start, department, doctor, status, visit_type]
+      properties:
+        id: { type: string, format: uuid }
+        appointment_no: { type: string }
+        slot_start: { type: string, format: date-time }
+        department: { type: string }
+        doctor: { type: string }
+        visit_type: { type: string, enum: [first, revisit] }
+        status: { type: string, enum: [booked, canceled, completed, no_show] }
+        symptom_note: { type: string }
+        cancelable: { type: boolean }
+    WaitTimesResponse:
+      type: object
+      required: [updated_at, note, departments]
+      properties:
+        updated_at: { type: string, format: date-time }
+        note: { type: string, example: 待ち時間は目安です。混雑状況により変動します }
+        departments:
+          type: array
+          items: { $ref: "#/components/schemas/DepartmentWaitTime" }
+    DepartmentWaitTime:
+      type: object
+      required: [department_id, name, status]
+      properties:
+        department_id: { type: integer, format: int64 }
+        name: { type: string }
+        status: { type: string, enum: [available, unavailable] }
+        waiting_count: { type: integer, minimum: 0 }
+        wait_minutes: { type: integer, minimum: 0 }
+        basis:
+          type: string
+          enum: [actual, standard]
+          description: actual=直近の診察実績 / standard=管理者設定の標準診察時間による目安
+        reason:
+          type: string
+          enum: [before_hours, closed, no_data]
+          description: status=unavailable の理由
+    Position:
+      type: object
+      required: [ahead_count, status]
+      properties:
+        status: { type: string, enum: [not_checked_in, waiting, called, in_consultation, done, canceled] }
+        ahead_count: { type: integer, minimum: 0 }
+        estimated_call_at: { type: string, format: date-time, nullable: true }
+        basis: { type: string, enum: [actual, standard] }
+    WalkInRequest:
+      type: object
+      required: [department_id]
+      properties:
+        department_id: { type: integer, format: int64 }
+    StaffWalkInRequest:
+      type: object
+      required: [department_id]
+      properties:
+        department_id: { type: integer, format: int64 }
+        patient_id: { type: string, format: uuid, description: アカウントがある場合 }
+        display_name: { type: string, maxLength: 100, description: アカウントが無い場合の氏名（スタッフ専用・公開しない） }
+    WalkInTicket:
+      type: object
+      required: [queue_entry_id, ticket_no, ahead_count]
+      properties:
+        queue_entry_id: { type: string, format: uuid }
+        ticket_no: { type: integer, minimum: 1 }
+        ahead_count: { type: integer, minimum: 0 }
+    QueueState:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [waiting, called, in_consultation, done, canceled] }
+    StaffQueueEntry:
+      type: object
+      required: [id, ticket_no, source, status, patient_name]
+      properties:
+        id: { type: string, format: uuid }
+        ticket_no: { type: integer }
+        source: { type: string, enum: [reservation, walk_in] }
+        status: { type: string, enum: [waiting, called, in_consultation] }
+        patient_name: { type: string }
+        symptom_note: { type: string }
+        checked_in_at: { type: string, format: date-time }
+    ClosureRequest:
+      type: object
+      required: [from_at, to_at]
+      properties:
+        doctor_id: { type: integer, format: int64, nullable: true, description: null で医療機関全体の休診 }
+        from_at: { type: string, format: date-time }
+        to_at: { type: string, format: date-time }
+        reason: { type: string, maxLength: 200 }
+    ClosureResult:
+      type: object
+      required: [closed_slots, notified]
+      properties:
+        closed_slots: { type: integer, minimum: 0 }
+        notified: { type: integer, minimum: 0 }
+    SchedulesRequest:
+      type: object
+      required: [doctor_id, schedules]
+      properties:
+        doctor_id: { type: integer, format: int64 }
+        schedules:
+          type: array
+          items:
+            type: object
+            required: [weekday, start_time, end_time, slot_minutes, capacity]
+            properties:
+              weekday: { type: integer, minimum: 0, maximum: 6, description: 0=日曜 }
+              start_time: { type: string, example: "09:00" }
+              end_time: { type: string, example: "12:00" }
+              slot_minutes: { type: integer, minimum: 1 }
+              capacity: { type: integer, minimum: 1 }
+    SettingsRequest:
+      type: object
+      properties:
+        cancel_deadline_minutes: { type: integer, minimum: 0 }
+        booking_window_days: { type: integer, minimum: 1 }
+        departments:
+          type: array
+          items:
+            type: object
+            required: [id]
+            properties:
+              id: { type: integer, format: int64 }
+              standard_consult_minutes: { type: integer, minimum: 1, nullable: true }
+              walkin_cutoff: { type: string, example: "11:30", nullable: true }
+              walkin_capacity: { type: integer, minimum: 1, nullable: true }
+    Settings:
+      type: object
+      required: [cancel_deadline_minutes, booking_window_days]
+      properties:
+        cancel_deadline_minutes: { type: integer }
+        booking_window_days: { type: integer }
