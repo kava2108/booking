@@ -1,12 +1,12 @@
 ---
 issue_id: 17-clinic-reservation-frontend-booking
-run_id: drift-20261010-001
-run_at: 2026-10-10T20:25:00+09:00
-imp_version: 1.0.0
+run_id: drift-20261010-002
+run_at: 2026-10-10T20:45:00+09:00
+imp_version: 1.0.1
 drift_baseline: e67336bf4d6f20eada9cbf37744f4b5d2eb4027b
-drift_score: 13
+drift_score: 4
 threshold: 20
-status: Minor
+status: Aligned
 ---
 
 # 乖離レポート: 17-clinic-reservation-frontend-booking
@@ -14,12 +14,12 @@ status: Minor
 ## スコアサマリー
 
 ```
-drift スコア: 13/100 — Minor Drift
+drift スコア: 4/100 — Aligned
 
 CRITICAL: 0件 (×10点 = 0点)
-WARNING:  3件 (×3点  = 9点)
+WARNING:  0件 (×3点  = 0点)
 INFO:     4件 (×1点  = 4点)
-合計:     13点
+合計:     4点
 ```
 
 > 注: 本 IMP は実装の後に作成した。乖離の多くは「IMP の記述誤り」であり、実装側の欠陥ではない。
@@ -48,11 +48,11 @@ INFO:     4件 (×1点  = 4点)
 | エンドポイント | IMP 仕様 | 実装 | 乖離内容 | 判定 | スコア |
 |---|---|---|---|---|---|
 | GET /departments, /doctors, /slots | 記載あり | 一致 | — | OK | 0 |
-| POST /appointments | visit_type: "first" \| **"follow_up"** | openapi.yaml・実装とも **"revisit"** | IMP の記述誤り（IMP 4 の予約作成・TASK-0002） | WARNING | +3 |
+| POST /appointments | visit_type: "first" \| "revisit"（IMP 1.0.1 で訂正） | 一致 | — | OK | 0 |
 | GET /appointments/me, PATCH / DELETE /appointments/{id} | 記載あり | 一致 | — | OK | 0 |
-| GET /appointments/{id}/position | 未記載 | AppointmentCard 内の PositionPanel（features/waittime）が呼ぶ | IMP 未記載の利用 | WARNING | +3 |
+| GET /appointments/{id}/position | 3.2 に記載（IMP 1.0.1 で追記） | AppointmentCard 内の PositionPanel が呼ぶ | — | OK | 0 |
 
-**D2 小計**: 6点
+**D2 小計**: 0点
 
 ---
 
@@ -100,10 +100,10 @@ IMP 未記載のタスクの実装: なし。
 | 項目 | 結果 | 判定 | スコア |
 |---|---|---|---|
 | 16 進カラー直書き・font-family・font-size 直指定 | 該当なし | OK | 0 |
-| MASTER.md にない色の濃淡 | BookingDialog.tsx:76, 81 の text-red-600 / text-red-700（MASTER.md の定義は error-500 = red-500 のみ） | WARNING | +3 |
+| MASTER.md にない色の濃淡 | BookingDialog.tsx:76, 81 の text-red-600 / 700 を MASTER.md 2.3 に `error-text` として追記（文字は red-500 だと AA のコントラストに満たない） | OK | 0 |
 | Pre-delivery Checklist（U01–U06）/ Anti-patterns | MASTER.md にこれらの節が無く、判定できない | N/A | 0 |
 
-**D6 小計**: 3点
+**D6 小計**: 0点
 
 ---
 
@@ -113,9 +113,13 @@ IMP 未記載のタスクの実装: なし。
 - なし
 
 ### WARNING（早期対応）
+- なし（前回の 3 件は解消）
+
+<!-- 前回の対応済み項目:
 - IMP の visit_type を "revisit" に直す → `/kairo:imp_generate 17-clinic-reservation-frontend-booking --update`（パッチ版）
 - IMP の 3.2 に GET /appointments/{id}/position（PositionPanel 経由）を追記する → 同上
 - BookingDialog のエラー文字色を MASTER.md のトークン（error-500）に揃えるか、MASTER.md に text-red-600 / 700 を追記する
+-->
 
 ### INFO（任意対応）
 - 期限超過時に表示する医療機関の連絡先（電話番号）を持つか決める。API や設定に連絡先が無いため、AC 文言の「連絡方法」を「電話で連絡」と解釈している
@@ -128,6 +132,6 @@ IMP 未記載のタスクの実装: なし。
 
 | 指標 | 前回 | 今回 | 変化 |
 |---|---|---|---|
-| drift スコア | — | 13 | 初回 |
-| CRITICAL | — | 0 | |
-| WARNING | — | 3 | |
+| drift スコア | 13 | 4 | ↑9 改善 |
+| CRITICAL | 0 | 0 | |
+| WARNING | 3 | 0 | ↑3 改善 |

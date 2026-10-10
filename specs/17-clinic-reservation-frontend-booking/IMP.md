@@ -5,10 +5,10 @@ kairo:
   phase: "IMP"
   issue_id: "17-clinic-reservation-frontend-booking"
   feature: "clinic-reservation"
-  imp_version: "1.0.0"
+  imp_version: "1.0.1"
   status: "active"
   created_at: "2026-10-10T20:10:00+09:00"
-  updated_at: "2026-10-10T20:10:00+09:00"
+  updated_at: "2026-10-10T20:40:00+09:00"
   drift_baseline: "e67336bf4d6f20eada9cbf37744f4b5d2eb4027b"
 coherence:
   id: "imp:17-clinic-reservation-frontend-booking"
@@ -36,7 +36,7 @@ baton:
 | 項目 | 値 |
 |---|---|
 | imp_id | IMP-17-clinic-reservation-frontend-booking |
-| imp_version | 1.0.0 |
+| imp_version | 1.0.1 |
 | source_issue | #17（https://github.com/kava2108/booking/issues/17） |
 | task | clinic-reservation tasks.md §3.3 |
 | status | active（**実装済みのコードから後追いで作成**） |
@@ -92,6 +92,7 @@ REQ-001〜003 の受け入れ基準（Must 4 / Should 4 件のうち、AC は is
 | POST /api/v1/appointments | 既存 | 利用のみ | なし |
 | GET /api/v1/appointments/me | 既存 | 利用のみ | なし |
 | PATCH / DELETE /api/v1/appointments/{id} | 既存 | 利用のみ | なし |
+| GET /api/v1/appointments/{id}/position | 既存（#15） | 予約カード内の PositionPanel（features/waittime）が本日の予約で利用。本 IMP では実装しない | なし |
 
 ### 3.3 スキーマ変更
 
@@ -107,7 +108,7 @@ REQ-001〜003 の受け入れ基準（Must 4 / Should 4 件のうち、AC は is
 
 **入力**
 ```
-slot_id: string, visit_type: "first" | "follow_up"（必須）, symptom_note: string（任意・1000 文字以内）
+slot_id: string, visit_type: "first" | "revisit"（必須）, symptom_note: string（任意・1000 文字以内）
 ```
 
 **出力**
@@ -322,3 +323,4 @@ IMP-checklist.md を参照。
 | バージョン | 変更内容 | 変更者 | 日時 |
 |---|---|---|---|
 | 1.0.0 | 実装（PR #18）から後追いで作成 | Claude | 2026-10-10T20:10:00+09:00 |
+| 1.0.1 | drift_check の指摘を反映（visit_type を revisit に訂正、position API を追記） | Claude | 2026-10-10T20:40:00+09:00 |
