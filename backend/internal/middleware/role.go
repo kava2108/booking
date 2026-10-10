@@ -18,22 +18,22 @@ func RequireRole(allowed ...domain.Role) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			id, ok := IdentityFrom(c)
 			if !ok {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return writeError(c, http.StatusUnauthorized, "unauthorized")
 			}
 			if !id.Role.Valid() || !slices.Contains(allowed, id.Role) {
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
+				return writeError(c, http.StatusForbidden, "forbidden")
 			}
 			return next(c)
 		}
 	}
 }
 
-// StaffOnly は /api/staff/** 用。受付スタッフとクリニック管理者を許可する。
+// StaffOnly は /api/v1/staff/** 用。受付スタッフとクリニック管理者を許可する。
 func StaffOnly() echo.MiddlewareFunc {
 	return RequireRole(domain.RoleStaff, domain.RoleClinicAdmin)
 }
 
-// AdminOnly は /api/admin/** 用。クリニック管理者のみ許可する。
+// AdminOnly は /api/v1/admin/** 用。クリニック管理者のみ許可する。
 func AdminOnly() echo.MiddlewareFunc {
 	return RequireRole(domain.RoleClinicAdmin)
 }

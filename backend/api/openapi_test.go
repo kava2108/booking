@@ -40,15 +40,15 @@ func operations(doc *openapi3.T) []op {
 // 設計書 §API Design の 19 エンドポイントが過不足なく定義されている
 func TestOpenAPI_EndpointsMatchDesign(t *testing.T) {
 	want := []string{
-		"GET /api/departments", "GET /api/doctors", "GET /api/slots",
-		"POST /api/appointments", "GET /api/appointments/me",
-		"PATCH /api/appointments/{id}", "DELETE /api/appointments/{id}",
-		"GET /api/wait-times", "GET /api/appointments/{id}/position",
-		"POST /api/walk-ins", "POST /api/staff/walk-ins",
-		"POST /api/staff/queue/{id}/check-in", "POST /api/staff/queue/{id}/call",
-		"POST /api/staff/queue/{id}/start", "POST /api/staff/queue/{id}/complete",
-		"GET /api/staff/queue", "POST /api/staff/closures",
-		"PUT /api/admin/schedules", "PUT /api/admin/settings",
+		"GET /api/v1/departments", "GET /api/v1/doctors", "GET /api/v1/slots",
+		"POST /api/v1/appointments", "GET /api/v1/appointments/me",
+		"PATCH /api/v1/appointments/{id}", "DELETE /api/v1/appointments/{id}",
+		"GET /api/v1/wait-times", "GET /api/v1/appointments/{id}/position",
+		"POST /api/v1/walk-ins", "POST /api/v1/staff/walk-ins",
+		"POST /api/v1/staff/queue/{id}/check-in", "POST /api/v1/staff/queue/{id}/call",
+		"POST /api/v1/staff/queue/{id}/start", "POST /api/v1/staff/queue/{id}/complete",
+		"GET /api/v1/staff/queue", "POST /api/v1/staff/closures",
+		"PUT /api/v1/admin/schedules", "PUT /api/v1/admin/settings",
 	}
 	var got []string
 	for _, o := range operations(load(t)) {
@@ -88,17 +88,17 @@ func hasSecurity(doc *openapi3.T, o op) bool {
 // REQ-005-AC-4: 認可要件が定義に明記されている（実装の権限マトリクスのテスト基準になる）
 func TestOpenAPI_AuthorizationMatrix(t *testing.T) {
 	doc := load(t)
-	public := map[string]bool{"/api/departments": true, "/api/doctors": true, "/api/slots": true, "/api/wait-times": true}
+	public := map[string]bool{"/api/v1/departments": true, "/api/v1/doctors": true, "/api/v1/slots": true, "/api/v1/wait-times": true}
 
 	for _, o := range operations(doc) {
 		name := o.method + " " + o.path
 		switch {
 		case public[o.path]:
 			assert.False(t, hasSecurity(doc, o), "%s は認証不要", name)
-		case strings.HasPrefix(o.path, "/api/staff/"):
+		case strings.HasPrefix(o.path, "/api/v1/staff/"):
 			assert.True(t, hasSecurity(doc, o), name)
 			assert.ElementsMatch(t, []string{"staff", "clinic_admin"}, roles(o), name)
-		case strings.HasPrefix(o.path, "/api/admin/"):
+		case strings.HasPrefix(o.path, "/api/v1/admin/"):
 			assert.True(t, hasSecurity(doc, o), name)
 			assert.ElementsMatch(t, []string{"clinic_admin"}, roles(o), name)
 		default:
@@ -111,7 +111,7 @@ func TestOpenAPI_AuthorizationMatrix(t *testing.T) {
 // REQ-007-AC-1: 公開 API の応答に個人を特定できる項目を含めない
 func TestOpenAPI_PublicWaitTimesHasNoPII(t *testing.T) {
 	doc := load(t)
-	resp := doc.Paths.Find("/api/wait-times").Get.Responses.Status(200).Value.Content.Get("application/json").Schema
+	resp := doc.Paths.Find("/api/v1/wait-times").Get.Responses.Status(200).Value.Content.Get("application/json").Schema
 	banned := []string{"name", "patient", "symptom", "display_name", "email", "ticket_no", "phone", "user"}
 
 	var walk func(s *openapi3.SchemaRef)
@@ -136,7 +136,7 @@ func TestOpenAPI_PublicWaitTimesHasNoPII(t *testing.T) {
 // 待ち時間の応答は設計書どおり（basis / status / reason / note / updated_at）
 func TestOpenAPI_WaitTimesSchema(t *testing.T) {
 	doc := load(t)
-	schema := doc.Paths.Find("/api/wait-times").Get.Responses.Status(200).Value.Content.Get("application/json").Schema.Value
+	schema := doc.Paths.Find("/api/v1/wait-times").Get.Responses.Status(200).Value.Content.Get("application/json").Schema.Value
 	for _, k := range []string{"updated_at", "note", "departments"} {
 		assert.Contains(t, schema.Properties, k)
 	}
@@ -155,14 +155,14 @@ func TestOpenAPI_ErrorResponses(t *testing.T) {
 		o := item.GetOperation(method)
 		return o != nil && o.Responses.Status(code) != nil
 	}
-	assert.True(t, has("POST", "/api/appointments", 409), "満席 409")
-	assert.True(t, has("POST", "/api/appointments", 422), "入力不正/重複 422")
-	assert.True(t, has("DELETE", "/api/appointments/{id}", 422), "キャンセル期限超過 422")
-	assert.True(t, has("POST", "/api/walk-ins", 422), "当日受付の締切 422")
-	assert.True(t, has("GET", "/api/wait-times", 429), "公開 API のレートリミット 429")
-	assert.True(t, has("POST", "/api/staff/queue/{id}/call", 409), "不正遷移 409")
-	assert.True(t, has("GET", "/api/staff/queue", 403), "権限不足 403")
-	assert.True(t, has("GET", "/api/appointments/me", 401), "未認証 401")
+	assert.True(t, has("POST", "/api/v1/appointments", 409), "満席 409")
+	assert.True(t, has("POST", "/api/v1/appointments", 422), "入力不正/重複 422")
+	assert.True(t, has("DELETE", "/api/v1/appointments/{id}", 422), "キャンセル期限超過 422")
+	assert.True(t, has("POST", "/api/v1/walk-ins", 422), "当日受付の締切 422")
+	assert.True(t, has("GET", "/api/v1/wait-times", 429), "公開 API のレートリミット 429")
+	assert.True(t, has("POST", "/api/v1/staff/queue/{id}/call", 409), "不正遷移 409")
+	assert.True(t, has("GET", "/api/v1/staff/queue", 403), "権限不足 403")
+	assert.True(t, has("GET", "/api/v1/appointments/me", 401), "未認証 401")
 }
 
 // 症状メモは本人・スタッフ向けスキーマにのみ存在する

@@ -34,7 +34,7 @@
   - `backend/internal/config/config.go`: viper で環境変数（DB_DSN, JWT_SECRET, JWT_REFRESH_SECRET, JWT_ACCESS_TTL, JWT_REFRESH_TTL, SMTP_*, RATE_LIMIT_*）を読み込む
   - `backend/internal/middleware/request_id.go`: X-Request-ID を生成・付与するミドルウェアを実装する
   - `backend/internal/middleware/logger.go`: zerolog による構造化ログミドルウェア（X-Request-ID を context 経由で引き回す）を実装する
-  - `backend/internal/middleware/rate_limiter.go`: ulule/limiter を使い認証エンドポイント向け IP ベースレートリミットを実装する（5回失敗→15分ブロック）
+  - `backend/internal/middleware/rate_limiter.go`: ulule/limiter を使い認証エンドポイント向け IP ベースレートリミットを実装する（IP 単位の汎用リミッター。ログインのアカウント単位ロックは AuthService の AttemptGuard で実装: 連続5回失敗→15分）
   - `backend/cmd/api/main.go`: Echo インスタンス・ルーティング・ミドルウェアチェインを組み立てる
   - _Requirements: REQ-002-AC-3_
   - _Parallel: P0（依存なし）_

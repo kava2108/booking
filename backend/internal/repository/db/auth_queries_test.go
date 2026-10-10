@@ -94,7 +94,9 @@ func TestRefreshTokenLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tok.ID, got.ID)
 
-	require.NoError(t, q.RevokeRefreshToken(ctx, tok.ID))
+	n, err := q.RevokeRefreshToken(ctx, tok.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n)
 	revoked, err := q.GetRefreshTokenByHash(ctx, "hash-1")
 	require.NoError(t, err)
 	assert.True(t, revoked.RevokedAt.Valid, "失効済みでも行は返し、判定は service が行う")
@@ -122,7 +124,9 @@ func TestPasswordResetTokenLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tok.ID, got.ID)
 
-	require.NoError(t, q.MarkPasswordResetTokenUsed(ctx, tok.ID))
+	n, err := q.MarkPasswordResetTokenUsed(ctx, tok.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n)
 	used, err := q.GetPasswordResetTokenByHash(ctx, "reset-1")
 	require.NoError(t, err)
 	assert.True(t, used.UsedAt.Valid)
@@ -137,10 +141,13 @@ func TestMarkPasswordResetTokenUsed_Idempotent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, q.MarkPasswordResetTokenUsed(ctx, tok.ID))
+	_, err = q.MarkPasswordResetTokenUsed(ctx, tok.ID)
+	require.NoError(t, err)
 	first, _ := q.GetPasswordResetTokenByHash(ctx, "reset-2")
 	time.Sleep(10 * time.Millisecond)
-	require.NoError(t, q.MarkPasswordResetTokenUsed(ctx, tok.ID))
+	n2, err := q.MarkPasswordResetTokenUsed(ctx, tok.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, n2, "2 回目は更新されない")
 	second, _ := q.GetPasswordResetTokenByHash(ctx, "reset-2")
 
 	assert.Equal(t, first.UsedAt.Time, second.UsedAt.Time)

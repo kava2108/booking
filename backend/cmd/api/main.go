@@ -1,5 +1,5 @@
 // Command api は REST API サーバーのエントリーポイント。
-// IMP 3-user-auth-go-infra TASK-0001
+// IMP 3-user-auth-go-infra / 10-user-auth-auth-handler TASK-0001
 package main
 
 import (
@@ -12,60 +12,91 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	echomw "github.com/labstack/echo/v4/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 
+	"github.com/kava2108/booking/backend/internal/app"
+	"github.com/kava2108/booking/backend/internal/auth"
 	"github.com/kava2108/booking/backend/internal/config"
-	"github.com/kava2108/booking/backend/internal/middleware"
+	"github.com/kava2108/booking/backend/internal/repository"
+	"github.com/kava2108/booking/backend/internal/repository/db"
+	"github.com/kava2108/booking/backend/internal/service"
 )
-
-// newEcho はミドルウェアチェイン（request_id → logger → recover）を組み立てる。
-func newEcho(_ *config.Config, logger zerolog.Logger) *echo.Echo {
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
-	// X-Forwarded-For は偽装可能なためレートリミット等で信用しない。
-	// リバースプロキシ配下に置く場合は信頼するプロキシを明示して差し替える。
-	e.IPExtractor = echo.ExtractIPDirect()
-
-	e.Use(middleware.RequestID(), middleware.Logger(logger), echomw.Recover())
-
-	e.GET("/healthz", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
-	return e
-}
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	if err := run(logger); err != nil {
+		logger.Fatal().Err(err).Msg("fatal")
+	}
+}
 
+func run(logger zerolog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to load config")
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	e := newEcho(cfg, logger)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	poolCfg, err := pgxpool.ParseConfig(cfg.DBDSN)
+	if err != nil {
+		return fmt.Errorf("parse DB_DSN: %w", errors.New("invalid DSN")) // DSN にはパスワードが含まれ得るため内容は出さない
+	}
+	poolCfg.MaxConns = cfg.DBMaxConns
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return fmt.Errorf("connect database: %w", err)
+	}
+	defer pool.Close()
+	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := pool.Ping(pingCtx); err != nil {
+		return fmt.Errorf("ping database: %w", err)
+	}
+
+	tm, err := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessTTL)
+	if err != nil {
+		return err
+	}
+	q := db.New(pool)
+	svc := service.NewAuthService(repository.NewUserRepository(q), repository.NewTokenRepository(q), tm, newMailer(cfg, logger),
+		service.AuthConfig{
+			RefreshTTL: cfg.JWTRefreshTTL, ResetTTL: 30 * time.Minute, ResetURLBase: cfg.AppBaseURL,
+			LoginMaxFailures: cfg.RateLimitLoginMax, LoginLockWindow: cfg.RateLimitLoginWindow,
+		},
+		service.WithLogger(logger))
+
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.ServerPort),
-		Handler:           e,
+		Handler:           app.New(app.Deps{Config: cfg, Logger: logger, Auth: svc, Tokens: tm}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-
+	errCh := make(chan error, 1)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal().Err(err).Msg("server error")
+			errCh <- err
 		}
 	}()
 	logger.Info().Int("port", cfg.ServerPort).Msg("server started")
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error().Err(err).Msg("graceful shutdown failed")
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("server error: %w", err)
+	case <-ctx.Done():
 	}
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), app.ShutdownTimeout)
+	defer cancelShutdown()
+	return srv.Shutdown(shutdownCtx)
+}
+
+// newMailer は SMTP_HOST があれば SMTP、無ければ何も送らない実装を返す(開発用)。
+func newMailer(cfg *config.Config, logger zerolog.Logger) service.Mailer {
+	if cfg.SMTPHost == "" {
+		logger.Warn().Msg("SMTP_HOST is not set: emails will not be sent")
+		return service.NoopMailer{}
+	}
+	return service.NewSMTPMailer(service.SMTPConfig{
+		Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
+	})
 }

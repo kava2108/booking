@@ -93,7 +93,7 @@ sequenceDiagram
 
   User->>FE: email + password 入力
   FE->>RL: POST /api/v1/auth/login
-  RL-->>FE: HTTP 429 (5回失敗後 15分ブロック)
+  RL-->>FE: HTTP 429 (IP 単位の天井。アカウント単位のロックは AuthService が判定: 連続5回失敗後 15分)
   RL->>H: リクエスト転送（X-Request-ID 付与済み）
   H->>S: Login(ctx, email, password)
   S->>R: FindByEmail(ctx, email)

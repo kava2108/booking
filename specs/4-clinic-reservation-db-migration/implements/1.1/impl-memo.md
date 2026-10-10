@@ -8,7 +8,7 @@ created_at: 2026-10-10T16:30:56+09:00
 
 ## 採用したアプローチ
 
-- **clinic_settings（設計書にない追加テーブル）**: REQ-006-AC-2 の「受付期間・キャンセル期限」と `PUT /api/admin/settings` の保存先が設計書の ER 図に無かったため、単一行テーブルとして追加。design.md の ER 図への反映が必要（TODO）。
+- **clinic_settings（設計書にない追加テーブル）**: REQ-006-AC-2 の「受付期間・キャンセル期限」と `PUT /api/v1/admin/settings` の保存先が設計書の ER 図に無かったため、単一行テーブルとして追加。design.md の ER 図への反映が必要（TODO）。
 - **主キー**: 診療科・医師などマスタは bigint IDENTITY、予約・枠・待機列・通知は uuid（設計書どおり）。
 - **appointments.patient_id は RESTRICT**: 医療・予約記録を患者削除で連鎖消去しない。監査ログは `ON DELETE SET NULL` で記録を残し、通知は `CASCADE`。
 - **queue_entries の整合性を CHECK で表現**: source=reservation ⇔ appointment_id あり、patient_id か display_name のどちらか必須。サービス層のバグでも不正行が入らない。

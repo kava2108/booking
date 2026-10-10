@@ -34,6 +34,9 @@ func Logger(l zerolog.Logger) echo.MiddlewareFunc {
 			case status >= http.StatusBadRequest:
 				ev = l.Warn()
 			}
+			if err != nil && status >= http.StatusInternalServerError {
+				ev = ev.Err(err) // 5xx の原因(応答には出さない)
+			}
 			ev.Str("request_id", GetRequestID(c.Request().Context())).
 				Str("method", c.Request().Method).
 				Str("path", c.Request().URL.Path).

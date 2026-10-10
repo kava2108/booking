@@ -33,7 +33,12 @@ created_at: 2026-10-10T16:55:06+09:00
 ## TODO・未解決事項
 
 - [ ] user-auth P1: jwt_auth が検証後に SetIdentity を呼ぶ
-- [ ] ルーティング: /api/staff/** に StaffOnly、/api/admin/** に AdminOnly、PII を返すハンドラーに AuditLog、公開 API に NewRateLimiter
+- [ ] ルーティング: /api/v1/staff/** に StaffOnly、/api/v1/admin/** に AdminOnly、PII を返すハンドラーに AuditLog、公開 API に NewRateLimiter
 - [ ] 実装時に OpenAPI と応答を突き合わせる契約テストをハンドラー側にも追加（乖離リスク）
 - [ ] clinic_admin の割り当て手段（初期ユーザーの作り方）が未定義
 - [ ] Rate limit の Retry-After が OpenAPI に定義済みだが、公開 API 用の組込みは未
+
+
+## 変更 (2026-10-10): API パスを /api/v1 に統一
+
+user-auth（/api/v1/auth/*）に合わせ、clinic-reservation の全エンドポイントを `/api/v1/*` に変更。OpenAPI、契約テスト、生成型（frontend/src/api/schema.d.ts）、設計書、タスク、steering の命名規約を更新。互換性を壊す変更のときだけ /api/v2 を追加する。

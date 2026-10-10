@@ -29,6 +29,8 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, 7*24*time.Hour, cfg.JWTRefreshTTL)
 	assert.Equal(t, 5, cfg.RateLimitLoginMax)
 	assert.Equal(t, 15*time.Minute, cfg.RateLimitLoginWindow)
+	assert.Equal(t, 100, cfg.RateLimitLoginIPMax, "IP 単位の上限は緩い天井（共有 Wi-Fi を巻き込まない）")
+	assert.Equal(t, 20, cfg.RateLimitSensitiveMax)
 	assert.Equal(t, 60, cfg.RateLimitPublicMax)
 	assert.Equal(t, time.Minute, cfg.RateLimitPublicWindow)
 }
@@ -108,4 +110,59 @@ func TestLoad_InvalidPublicRateLimit(t *testing.T) {
 	_, err := Load()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "RATE_LIMIT_PUBLIC_MAX")
+}
+
+// IMP 10-user-auth-auth-handler: Cookie と フロント URL の設定
+func TestLoad_CookieAndBaseURL(t *testing.T) {
+	setRequired(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.True(t, cfg.CookieSecure, "既定で Secure Cookie")
+	assert.Equal(t, "http://localhost:5173", cfg.AppBaseURL)
+
+	t.Setenv("COOKIE_SECURE", "false")
+	t.Setenv("APP_BASE_URL", "https://app.example.com")
+	cfg, err = Load()
+	require.NoError(t, err)
+	assert.False(t, cfg.CookieSecure)
+	assert.Equal(t, "https://app.example.com", cfg.AppBaseURL)
+}
+
+func TestLoad_InvalidCookieAndBaseURL(t *testing.T) {
+	for key, val := range map[string]string{
+		"COOKIE_SECURE": "maybe",
+		"APP_BASE_URL":  "javascript:alert(1)",
+	} {
+		t.Run(key, func(t *testing.T) {
+			setRequired(t)
+			t.Setenv(key, val)
+			_, err := Load()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), key)
+		})
+	}
+}
+
+// IMP 10: ログイン制限はアカウント単位（RATE_LIMIT_LOGIN_MAX = 連続失敗回数）、IP 単位は別の天井
+func TestLoad_LoginLimitOverrides(t *testing.T) {
+	setRequired(t)
+	t.Setenv("RATE_LIMIT_LOGIN_IP_MAX", "300")
+	t.Setenv("RATE_LIMIT_SENSITIVE_MAX", "50")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, 300, cfg.RateLimitLoginIPMax)
+	assert.Equal(t, 50, cfg.RateLimitSensitiveMax)
+}
+
+func TestLoad_InvalidLoginIPLimit(t *testing.T) {
+	for _, key := range []string{"RATE_LIMIT_LOGIN_IP_MAX", "RATE_LIMIT_SENSITIVE_MAX"} {
+		t.Run(key, func(t *testing.T) {
+			setRequired(t)
+			t.Setenv(key, "0")
+			_, err := Load()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), key)
+		})
+	}
 }

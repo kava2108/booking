@@ -25,7 +25,7 @@ tags:
   - name: admin
     description: クリニック管理者（clinic_admin）
 paths:
-  /api/departments:
+  /api/v1/departments:
     get:
       tags: [catalog]
       summary: 診療科一覧
@@ -42,7 +42,7 @@ paths:
                   $ref: "#/components/schemas/Department"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /api/doctors:
+  /api/v1/doctors:
     get:
       tags: [catalog]
       summary: 医師一覧
@@ -66,7 +66,7 @@ paths:
           $ref: "#/components/responses/Unprocessable"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /api/slots:
+  /api/v1/slots:
     get:
       tags: [catalog]
       summary: 空き枠検索
@@ -99,7 +99,7 @@ paths:
           $ref: "#/components/responses/Unprocessable"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /api/appointments:
+  /api/v1/appointments:
     post:
       tags: [appointments]
       summary: 予約確定
@@ -123,7 +123,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/Unprocessable"
-  /api/appointments/me:
+  /api/v1/appointments/me:
     get:
       tags: [appointments]
       summary: 自分の予約一覧
@@ -139,7 +139,7 @@ paths:
                   $ref: "#/components/schemas/AppointmentSummary"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/appointments/{id}:
+  /api/v1/appointments/{id}:
     patch:
       tags: [appointments]
       summary: 予約の日時変更
@@ -182,7 +182,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/Unprocessable"
-  /api/appointments/{id}/position:
+  /api/v1/appointments/{id}/position:
     get:
       tags: [waittime]
       summary: 自分の順番と呼出見込み
@@ -200,7 +200,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-  /api/wait-times:
+  /api/v1/wait-times:
     get:
       tags: [waittime]
       summary: 診療科別の現在の待ち時間
@@ -216,7 +216,7 @@ paths:
                 $ref: "#/components/schemas/WaitTimesResponse"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /api/walk-ins:
+  /api/v1/walk-ins:
     post:
       tags: [walkin]
       summary: 当日受付（患者本人）
@@ -238,7 +238,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/Unprocessable"
-  /api/staff/walk-ins:
+  /api/v1/staff/walk-ins:
     post:
       tags: [staff]
       summary: 当日受付（スタッフ代行・無アカウント可）
@@ -263,7 +263,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/Unprocessable"
-  /api/staff/queue:
+  /api/v1/staff/queue:
     get:
       tags: [staff]
       summary: 待機列（氏名・症状メモを含む）
@@ -288,7 +288,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-  /api/staff/queue/{id}/check-in:
+  /api/v1/staff/queue/{id}/check-in:
     post:
       tags: [staff]
       summary: 予約患者の来院受付
@@ -311,7 +311,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /api/staff/queue/{id}/call:
+  /api/v1/staff/queue/{id}/call:
     post:
       tags: [staff]
       summary: 呼出
@@ -334,7 +334,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /api/staff/queue/{id}/start:
+  /api/v1/staff/queue/{id}/start:
     post:
       tags: [staff]
       summary: 診察開始
@@ -357,7 +357,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /api/staff/queue/{id}/complete:
+  /api/v1/staff/queue/{id}/complete:
     post:
       tags: [staff]
       summary: 診察完了
@@ -380,7 +380,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /api/staff/closures:
+  /api/v1/staff/closures:
     post:
       tags: [staff]
       summary: 休診・医師不在の設定
@@ -406,7 +406,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/Unprocessable"
-  /api/admin/schedules:
+  /api/v1/admin/schedules:
     put:
       tags: [admin]
       summary: 診療時間・枠長・定員の設定と枠生成
@@ -427,7 +427,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/Unprocessable"
-  /api/admin/settings:
+  /api/v1/admin/settings:
     put:
       tags: [admin]
       summary: 受付期間・キャンセル期限・標準診察時間

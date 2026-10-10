@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -26,7 +27,7 @@ func AuditLog(rec AuditRecorder, action string, target func(echo.Context) string
 		return func(c echo.Context) error {
 			id, ok := IdentityFrom(c)
 			if !ok {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return writeError(c, http.StatusUnauthorized, "unauthorized")
 			}
 			t := c.Request().URL.Path
 			if target != nil {
@@ -38,8 +39,8 @@ func AuditLog(rec AuditRecorder, action string, target func(echo.Context) string
 				Target:  t,
 			})
 			if err != nil {
-				c.Logger().Errorf("audit log failed: request_id=%s action=%s err=%v", GetRequestID(c.Request().Context()), action, err)
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal"})
+				// 原因は Logger ミドルウェアが記録する。応答は汎用の 500(個人情報は返さない)。
+				return fmt.Errorf("audit log %q: %w", action, err)
 			}
 			return next(c)
 		}

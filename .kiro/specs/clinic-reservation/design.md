@@ -105,7 +105,7 @@ sequenceDiagram
   participant R as Repository
   participant W as NotificationWorker
 
-  P->>H: POST /api/appointments {slot_id, visit_type, symptom_note}
+  P->>H: POST /api/v1/appointments {slot_id, visit_type, symptom_note}
   H->>S: Create(ctx, patientID, req)
   S->>R: BEGIN
   S->>R: UPDATE slots SET booked_count+1 WHERE booked_count < capacity
@@ -130,7 +130,7 @@ sequenceDiagram
   participant H as WaitTimeHandler
   participant C as TTL Cache
   participant S as WaitTimeService
-  B->>H: GET /api/wait-times (30秒ごと)
+  B->>H: GET /api/v1/wait-times (30秒ごと)
   H->>C: get
   alt hit
     C-->>H: cached
@@ -148,32 +148,32 @@ sequenceDiagram
 
 | Method | Path | 説明 | Auth | REQ-ID |
 |--------|------|------|------|--------|
-| GET | /api/departments | 診療科一覧 | none | REQ-001 |
-| GET | /api/doctors?department_id= | 医師一覧 | none | REQ-001 |
-| GET | /api/slots?department_id=&doctor_id=&date= | 空き枠検索 | none | REQ-001 |
-| POST | /api/appointments | 予約確定 | patient | REQ-002 |
-| GET | /api/appointments/me | 自分の予約一覧 | patient | REQ-003 |
-| PATCH | /api/appointments/{id} | 日時変更（枠の原子的付替え） | patient | REQ-003 |
-| DELETE | /api/appointments/{id} | キャンセル | patient | REQ-003 |
-| GET | /api/wait-times | 診療科別の待ち人数・待ち時間 | none | REQ-004, 007 |
-| GET | /api/appointments/{id}/position | 自分の順番・呼出見込み | patient(本人) | REQ-004 |
-| POST | /api/walk-ins | 当日受付（患者本人） | patient | REQ-008 |
-| POST | /api/staff/walk-ins | 当日受付（スタッフ代行・無アカウント可） | staff | REQ-008 |
-| POST | /api/staff/queue/{id}/check-in | 予約患者の来院受付 | staff | REQ-005 |
-| POST | /api/staff/queue/{id}/call | 呼出 | staff | REQ-005 |
-| POST | /api/staff/queue/{id}/start | 診察開始 | staff | REQ-005 |
-| POST | /api/staff/queue/{id}/complete | 診察完了 | staff | REQ-005 |
-| GET | /api/staff/queue?department_id= | 待機列（氏名・症状メモを含む） | staff | REQ-005, 007 |
-| POST | /api/staff/closures | 休診・医師不在設定（既存予約者へ通知） | staff | REQ-005 |
-| PUT | /api/admin/schedules | 診療時間・枠長・定員の設定と枠生成 | clinic_admin | REQ-006 |
-| PUT | /api/admin/settings | 受付期間・キャンセル期限・標準診察時間 | clinic_admin | REQ-006, 004 |
+| GET | /api/v1/departments | 診療科一覧 | none | REQ-001 |
+| GET | /api/v1/doctors?department_id= | 医師一覧 | none | REQ-001 |
+| GET | /api/v1/slots?department_id=&doctor_id=&date= | 空き枠検索 | none | REQ-001 |
+| POST | /api/v1/appointments | 予約確定 | patient | REQ-002 |
+| GET | /api/v1/appointments/me | 自分の予約一覧 | patient | REQ-003 |
+| PATCH | /api/v1/appointments/{id} | 日時変更（枠の原子的付替え） | patient | REQ-003 |
+| DELETE | /api/v1/appointments/{id} | キャンセル | patient | REQ-003 |
+| GET | /api/v1/wait-times | 診療科別の待ち人数・待ち時間 | none | REQ-004, 007 |
+| GET | /api/v1/appointments/{id}/position | 自分の順番・呼出見込み | patient(本人) | REQ-004 |
+| POST | /api/v1/walk-ins | 当日受付（患者本人） | patient | REQ-008 |
+| POST | /api/v1/staff/walk-ins | 当日受付（スタッフ代行・無アカウント可） | staff | REQ-008 |
+| POST | /api/v1/staff/queue/{id}/check-in | 予約患者の来院受付 | staff | REQ-005 |
+| POST | /api/v1/staff/queue/{id}/call | 呼出 | staff | REQ-005 |
+| POST | /api/v1/staff/queue/{id}/start | 診察開始 | staff | REQ-005 |
+| POST | /api/v1/staff/queue/{id}/complete | 診察完了 | staff | REQ-005 |
+| GET | /api/v1/staff/queue?department_id= | 待機列（氏名・症状メモを含む） | staff | REQ-005, 007 |
+| POST | /api/v1/staff/closures | 休診・医師不在設定（既存予約者へ通知） | staff | REQ-005 |
+| PUT | /api/v1/admin/schedules | 診療時間・枠長・定員の設定と枠生成 | clinic_admin | REQ-006 |
+| PUT | /api/v1/admin/settings | 受付期間・キャンセル期限・標準診察時間 | clinic_admin | REQ-006, 004 |
 
 パスは Steering の kebab-case 規約に従う。OpenAPI 定義を正とし、フロント型は `openapi-typescript` で生成する。
 
 ### リクエスト / レスポンス例
 
 ```json
-// POST /api/appointments
+// POST /api/v1/appointments
 { "slot_id": "7b1c…", "visit_type": "revisit", "symptom_note": "3日前から咳" }
 
 // 201
@@ -185,7 +185,7 @@ sequenceDiagram
 ```
 
 ```json
-// GET /api/wait-times  ← 個人情報を含まない
+// GET /api/v1/wait-times  ← 個人情報を含まない
 {
   "updated_at": "2026-10-12T09:41:10+09:00",
   "note": "待ち時間は目安です。混雑状況により変動します",
@@ -320,7 +320,7 @@ erDiagram
 | 要配慮個人情報（症状メモ）の漏えい | 本人と staff 以上のみ参照。公開 API には一切含めない（DTO を分離） | REQ-007-AC-2 |
 | 待ち時間からの個人推測 | 公開 API は件数・分のみ。少数時も氏名・受付番号は返さない | REQ-007-AC-1 |
 | 他人の予約・順番参照（IDOR） | `patient_id = JWT subject` を WHERE 条件に含める | REQ-003, 004 |
-| 権限昇格 | role をサーバ側で検証。`/api/staff`・`/api/admin` はミドルウェアで拒否 | REQ-005-AC-4 |
+| 権限昇格 | role をサーバ側で検証。`/api/v1/staff`・`/api/v1/admin` はミドルウェアで拒否 | REQ-005-AC-4 |
 | 公開 API への過負荷 | 10 秒キャッシュ + `ulule/limiter` | REQ-004 |
 | 予約の乱用（大量枠占有） | 同一患者の未来予約数の上限、重複時間帯拒否、当日受付はレートリミット | REQ-002-AC-5 |
 | SQL インジェクション | sqlc のパラメータバインドのみ | — |

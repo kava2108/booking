@@ -25,7 +25,7 @@ var actor = uuid.MustParse("11111111-1111-1111-1111-111111111111")
 
 func auditedServer(rec AuditRecorder, role domain.Role, handler echo.HandlerFunc) *echo.Echo {
 	e := echo.New()
-	e.GET("/api/staff/queue/:id", handler, withIdentity(role), AuditLog(rec, "view_queue_entry", nil))
+	e.GET("/api/v1/staff/queue/:id", handler, withIdentity(role), AuditLog(rec, "view_queue_entry", nil))
 	return e
 }
 
@@ -33,13 +33,13 @@ func auditedServer(rec AuditRecorder, role domain.Role, handler echo.HandlerFunc
 func TestAuditLog_RecordsBeforeHandler(t *testing.T) {
 	m := mocks.NewMockAdminRepository(t)
 	m.EXPECT().InsertAuditLog(mock.Anything, db.InsertAuditLogParams{
-		ActorID: uuidValue(actor), Action: "view_queue_entry", Target: "/api/staff/queue/abc",
+		ActorID: uuidValue(actor), Action: "view_queue_entry", Target: "/api/v1/staff/queue/abc",
 	}).Return(nil).Once()
 
 	called := false
 	e := auditedServer(m, domain.RoleStaff, func(c echo.Context) error { called = true; return c.NoContent(http.StatusOK) })
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/staff/queue/abc", nil))
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/staff/queue/abc", nil))
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.True(t, called)
@@ -52,9 +52,9 @@ func TestAuditLog_DoesNotRecordQueryStringOrBody(t *testing.T) {
 	m.EXPECT().InsertAuditLog(mock.Anything, mock.Anything).Run(func(_ context.Context, p db.InsertAuditLogParams) { got = p }).Return(nil)
 
 	e := auditedServer(m, domain.RoleStaff, func(c echo.Context) error { return c.NoContent(http.StatusOK) })
-	e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/staff/queue/abc?token=secret&note=咳", nil))
+	e.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/staff/queue/abc?token=secret&note=咳", nil))
 
-	assert.Equal(t, "/api/staff/queue/abc", got.Target)
+	assert.Equal(t, "/api/v1/staff/queue/abc", got.Target)
 	assert.NotContains(t, got.Action+got.Target, "secret")
 	assert.NotContains(t, got.Action+got.Target, "咳")
 }
@@ -67,7 +67,7 @@ func TestAuditLog_FailsClosed(t *testing.T) {
 	called := false
 	e := auditedServer(m, domain.RoleStaff, func(c echo.Context) error { called = true; return c.NoContent(http.StatusOK) })
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/staff/queue/abc", nil))
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/staff/queue/abc", nil))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.False(t, called)

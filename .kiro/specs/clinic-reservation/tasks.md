@@ -38,9 +38,9 @@
 
 - [ ] 2. コアバックエンド                                          [P1]
 - [ ] 2.1 診療科・医師・枠 API と管理者設定                          [P1]
-  - GET /api/departments, /api/doctors, /api/slots（満席・休診・締切を選択不可として返す）
+  - GET /api/v1/departments, /api/v1/doctors, /api/v1/slots（満席・休診・締切を選択不可として返す）
   - SlotService: doctor_schedules からの枠生成と日次ジョブ
-  - PUT /api/admin/schedules, /api/admin/settings（診療時間・枠長・定員・受付期間・キャンセル期限・標準診察時間）
+  - PUT /api/v1/admin/schedules, /api/v1/admin/settings（診療時間・枠長・定員・受付期間・キャンセル期限・標準診察時間）
   - _Requirements: REQ-001-AC-1, REQ-001-AC-2, REQ-001-AC-3, REQ-006-AC-1, REQ-006-AC-2_
   - _Parallel: P1（依存: 1.1, 1.2, 1.3）_
 
@@ -58,7 +58,7 @@
   - QueueService: 状態遷移（waiting→called→in_consultation→done）と不正遷移の 409
   - 予約患者の来院受付（sort_time = GREATEST(予約時刻, 受付時刻)）
   - 当日受付（患者本人 / スタッフ代行・無アカウント可）、受付番号発行、締切・定員の判定
-  - GET /api/staff/queue（氏名・症状メモを含む）、call / start / complete の各 API
+  - GET /api/v1/staff/queue（氏名・症状メモを含む）、call / start / complete の各 API
   - _Requirements: REQ-005-AC-1, REQ-005-AC-2, REQ-005-AC-4, REQ-008-AC-1, REQ-008-AC-2, REQ-008-AC-3, REQ-007-AC-2_
   - _Parallel: P1（依存: 1.1, 1.2, 1.3）_
 
@@ -74,13 +74,13 @@
 - [ ] 3.1 待ち時間算出と公開 API                                    [P2]
   - WaitTimeService: 待ち人数 × 直近 20 件の平均所要時間 ÷ 診察中医師数（切り上げ）
   - 実績 3 件未満は標準診察時間（basis=standard）、無ければ unavailable（reason 付き）
-  - GET /api/wait-times（未ログイン可・10 秒 TTL キャッシュ・個人情報なし・注記付き）
-  - GET /api/appointments/{id}/position（本人のみ。あと N 人と呼出見込み）
+  - GET /api/v1/wait-times（未ログイン可・10 秒 TTL キャッシュ・個人情報なし・注記付き）
+  - GET /api/v1/appointments/{id}/position（本人のみ。あと N 人と呼出見込み）
   - _Requirements: REQ-004-AC-1, REQ-004-AC-2, REQ-004-AC-4, REQ-004-AC-5, REQ-004-AC-6, REQ-007-AC-1_
   - _Parallel: P2（依存: 2.3）_
 
 - [ ] 3.2 休診・医師不在の設定                                      [P2]
-  - POST /api/staff/closures: 該当枠を closed にし、既存予約者へ通知を登録
+  - POST /api/v1/staff/closures: 該当枠を closed にし、既存予約者へ通知を登録
   - 休診中は待ち時間を unavailable(closed) にする
   - _Requirements: REQ-005-AC-3_
   - _Parallel: P2（依存: 2.1, 2.2, 2.4）_

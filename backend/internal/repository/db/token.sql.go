@@ -104,24 +104,47 @@ func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (
 	return i, err
 }
 
-const markPasswordResetTokenUsed = `-- name: MarkPasswordResetTokenUsed :exec
+const markPasswordResetTokenUsed = `-- name: MarkPasswordResetTokenUsed :execrows
 UPDATE password_reset_tokens
 SET used_at = now()
 WHERE id = $1 AND used_at IS NULL
 `
 
-func (q *Queries) MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, markPasswordResetTokenUsed, id)
-	return err
+// 影響行数 0 = 既に使用済み（または存在しない）。
+func (q *Queries) MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markPasswordResetTokenUsed, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+const revokeAllRefreshTokensForUser = `-- name: RevokeAllRefreshTokensForUser :execrows
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+// パスワード変更時に全セッションを失効させる。
+func (q *Queries) RevokeAllRefreshTokensForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAllRefreshTokensForUser, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :execrows
 UPDATE refresh_tokens
 SET revoked_at = now()
 WHERE id = $1 AND revoked_at IS NULL
 `
 
-func (q *Queries) RevokeRefreshToken(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, revokeRefreshToken, id)
-	return err
+// 影響行数 0 = 既に失効済み（または存在しない）。ローテーションの競合検知に使う。
+func (q *Queries) RevokeRefreshToken(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeRefreshToken, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

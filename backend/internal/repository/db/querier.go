@@ -74,7 +74,8 @@ type Querier interface {
 	ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) ([]ListStaffQueueRow, error)
 	MarkNotificationFailed(ctx context.Context, id uuid.UUID) error
 	MarkNotificationSent(ctx context.Context, id uuid.UUID) error
-	MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error
+	// 影響行数 0 = 既に使用済み（または存在しない）。
+	MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) (int64, error)
 	// IMP 5-clinic-reservation-sqlc-repository TASK-0001 / 待機列（REQ-004, 005, 008）
 	// 状態遷移は「現在の状態」を WHERE に含める。0 行（pgx.ErrNoRows）= 不正遷移（service が 409 にする）。
 	// 採番は MAX+1。同時採番の衝突は UNIQUE 違反（23505）になるため service が再試行する。
@@ -85,7 +86,10 @@ type Querier interface {
 	RescheduleAppointment(ctx context.Context, arg RescheduleAppointmentParams) (Appointment, error)
 	// 排他確保。単一の条件付き UPDATE で定員超過を防ぐ。0 行（pgx.ErrNoRows）= 満席または休診。
 	ReserveSlot(ctx context.Context, id uuid.UUID) (Slot, error)
-	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	// パスワード変更時に全セッションを失効させる。
+	RevokeAllRefreshTokensForUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	// 影響行数 0 = 既に失効済み（または存在しない）。ローテーションの競合検知に使う。
+	RevokeRefreshToken(ctx context.Context, id uuid.UUID) (int64, error)
 	StartQueueEntry(ctx context.Context, id uuid.UUID) (QueueEntry, error)
 	UpdateClinicSettings(ctx context.Context, arg UpdateClinicSettingsParams) (ClinicSetting, error)
 	UpdateDepartmentSettings(ctx context.Context, arg UpdateDepartmentSettingsParams) (Department, error)

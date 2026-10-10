@@ -10,7 +10,8 @@ RETURNING *;
 -- 失効済み・期限切れも返す。有効性の判定は service 層で行う。
 SELECT * FROM refresh_tokens WHERE token_hash = $1;
 
--- name: RevokeRefreshToken :exec
+-- name: RevokeRefreshToken :execrows
+-- 影響行数 0 = 既に失効済み（または存在しない）。ローテーションの競合検知に使う。
 UPDATE refresh_tokens
 SET revoked_at = now()
 WHERE id = $1 AND revoked_at IS NULL;
@@ -23,7 +24,14 @@ RETURNING *;
 -- name: GetPasswordResetTokenByHash :one
 SELECT * FROM password_reset_tokens WHERE token_hash = $1;
 
--- name: MarkPasswordResetTokenUsed :exec
+-- name: MarkPasswordResetTokenUsed :execrows
+-- 影響行数 0 = 既に使用済み（または存在しない）。
 UPDATE password_reset_tokens
 SET used_at = now()
 WHERE id = $1 AND used_at IS NULL;
+
+-- name: RevokeAllRefreshTokensForUser :execrows
+-- パスワード変更時に全セッションを失効させる。
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL;

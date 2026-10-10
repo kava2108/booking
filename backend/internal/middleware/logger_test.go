@@ -29,7 +29,7 @@ func runLogged(t *testing.T, req *http.Request, h echo.HandlerFunc) map[string]a
 
 // IMP 3-user-auth-go-infra TASK-0001: JSON ログに request_id を必ず含める
 func TestLogger_IncludesRequestID(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"password":"super-secret"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"password":"super-secret"}`))
 	req.Header.Set(HeaderRequestID, "req-abc")
 	req.Header.Set("Authorization", "Bearer secret-token")
 
@@ -37,7 +37,7 @@ func TestLogger_IncludesRequestID(t *testing.T) {
 
 	assert.Equal(t, "req-abc", out["request_id"])
 	assert.Equal(t, "POST", out["method"])
-	assert.Equal(t, "/api/auth/login", out["path"])
+	assert.Equal(t, "/api/v1/auth/login", out["path"])
 	assert.EqualValues(t, 200, out["status"])
 	assert.Contains(t, out, "latency_ms")
 }
@@ -49,7 +49,7 @@ func TestLogger_DoesNotLeakSecrets(t *testing.T) {
 	e.Use(RequestID(), Logger(zerolog.New(&buf)))
 	e.Any("/*", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/reset?token=reset-token-xyz", strings.NewReader(`{"password":"super-secret"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset?token=reset-token-xyz", strings.NewReader(`{"password":"super-secret"}`))
 	req.Header.Set("Authorization", "Bearer secret-token")
 	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "cookie-secret"})
 	e.ServeHTTP(httptest.NewRecorder(), req)

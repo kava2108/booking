@@ -56,7 +56,7 @@ baton:
 🔵 スタッフ/管理者 API の保護と監査の仕組みが無い。🔵 フロント型を手書きできない（Steering）ため、OpenAPI を先に確定する必要がある。🟡 JWT 検証は user-auth P1 の jwt_auth.go に依存する。
 
 ### 1.2 目標
-患者トークンで /api/staff/** が 403、監査対象 API で audit_logs に記録される。OpenAPI から TS 型が生成できる。
+患者トークンで /api/v1/staff/** が 403、監査対象 API で audit_logs に記録される。OpenAPI から TS 型が生成できる。
 
 ### 1.3 非目標（Out of Scope）
 各 API のハンドラー実装、JWT 発行（user-auth）、通知。
@@ -79,7 +79,7 @@ baton:
 | backend/internal/middleware/audit.go | 追加 | AuditLog(action string) — AuditRepository に非同期でなく同一リクエスト内で記録 | 症状メモ/待機列参照 |
 | backend/api/openapi.yaml | 追加 | 設計書 §API Design の19エンドポイントとスキーマ | フロント型生成 |
 | frontend/package.json（scripts）, frontend/src/api/ | 追加/修正 | openapi-typescript による生成スクリプトと生成物の置き場 | フロント全体 |
-| backend/internal/middleware/rate_limiter.go 利用設定 | 修正なし | 公開 API 用の別インスタンスを生成するのみ（#3 を変更しない） | /api/wait-times |
+| backend/internal/middleware/rate_limiter.go 利用設定 | 修正なし | 公開 API 用の別インスタンスを生成するのみ（#3 を変更しない） | /api/v1/wait-times |
 
 ### 3.2 API 変更
 
@@ -99,7 +99,7 @@ baton:
 
 **入力**
 ```
-入力: JWT クレーム role="patient" のリクエスト /api/staff/queue
+入力: JWT クレーム role="patient" のリクエスト /api/v1/staff/queue
 ```
 
 **出力**
@@ -152,7 +152,7 @@ baton:
 **例外・境界条件**
 | シナリオ | 期待される振る舞い |
 |---|---|
-| 正常系 | staff トークンで /api/staff/queue が通る |
+| 正常系 | staff トークンで /api/v1/staff/queue が通る |
 | 異常系 | patient トークンで 403、トークン無しは 401 |
 | 境界値 | clinic_admin は staff 用 API も許可するか（要決定 🟡: 許可を推奨） |
 

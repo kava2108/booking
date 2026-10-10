@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/departments": {
+    "/api/v1/departments": {
         parameters: {
             query?: never;
             header?: never;
@@ -21,7 +21,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/doctors": {
+    "/api/v1/doctors": {
         parameters: {
             query?: never;
             header?: never;
@@ -38,7 +38,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/slots": {
+    "/api/v1/slots": {
         parameters: {
             query?: never;
             header?: never;
@@ -58,7 +58,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/appointments": {
+    "/api/v1/appointments": {
         parameters: {
             query?: never;
             header?: never;
@@ -75,7 +75,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/appointments/me": {
+    "/api/v1/appointments/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,7 +92,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/appointments/{id}": {
+    "/api/v1/appointments/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -110,7 +110,7 @@ export interface paths {
         patch: operations["rescheduleAppointment"];
         trace?: never;
     };
-    "/api/appointments/{id}/position": {
+    "/api/v1/appointments/{id}/position": {
         parameters: {
             query?: never;
             header?: never;
@@ -127,7 +127,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/wait-times": {
+    "/api/v1/wait-times": {
         parameters: {
             query?: never;
             header?: never;
@@ -147,7 +147,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/walk-ins": {
+    "/api/v1/walk-ins": {
         parameters: {
             query?: never;
             header?: never;
@@ -164,7 +164,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/walk-ins": {
+    "/api/v1/staff/walk-ins": {
         parameters: {
             query?: never;
             header?: never;
@@ -181,7 +181,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/queue": {
+    "/api/v1/staff/queue": {
         parameters: {
             query?: never;
             header?: never;
@@ -201,7 +201,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/queue/{id}/check-in": {
+    "/api/v1/staff/queue/{id}/check-in": {
         parameters: {
             query?: never;
             header?: never;
@@ -218,7 +218,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/queue/{id}/call": {
+    "/api/v1/staff/queue/{id}/call": {
         parameters: {
             query?: never;
             header?: never;
@@ -235,7 +235,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/queue/{id}/start": {
+    "/api/v1/staff/queue/{id}/start": {
         parameters: {
             query?: never;
             header?: never;
@@ -252,7 +252,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/queue/{id}/complete": {
+    "/api/v1/staff/queue/{id}/complete": {
         parameters: {
             query?: never;
             header?: never;
@@ -269,7 +269,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/staff/closures": {
+    "/api/v1/staff/closures": {
         parameters: {
             query?: never;
             header?: never;
@@ -289,7 +289,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/schedules": {
+    "/api/v1/admin/schedules": {
         parameters: {
             query?: never;
             header?: never;
@@ -306,7 +306,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/settings": {
+    "/api/v1/admin/settings": {
         parameters: {
             query?: never;
             header?: never;

@@ -55,7 +55,7 @@ booking/
 - **変数名 (TS)**: camelCase
 - **変数名 (Go)**: camelCase（ローカル）/ PascalCase（エクスポート）
 - **クラス名 (TS)**: PascalCase / **struct 名 (Go)**: PascalCase（エクスポート）
-- **API エンドポイント**: kebab-case（例: `/api/facilities/available-slots`）
+- **API エンドポイント**: kebab-case。すべて `/api/v1` 配下に置く（例: `/api/v1/auth/login`, `/api/v1/wait-times`, `/api/v1/staff/queue`）。互換性を壊す変更のときだけ `/api/v2` を追加する
 - **DB テーブル名**: snake_case 複数形（例: `reservations`, `facility_slots`）
 - **テストファイル (TS)**: `*.test.ts` / `*.spec.ts`
 - **テストファイル (Go)**: `*_test.go`（同一パッケージに配置）
