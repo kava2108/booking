@@ -77,3 +77,17 @@ WHERE a.status = 'booked'
     WHERE n.kind = 'appointment_reminder' AND n.payload ->> 'appointment_id' = a.id::text
   )
 ORDER BY s.start_at;
+
+-- name: ListAppointmentsForStaff :many
+-- スタッフの来院受付用: 指定診療科の [from_at, to_at) の予約（有効・完了のみ）。氏名を含むため StaffOnly + 監査で保護する。
+SELECT a.id, a.appointment_no, a.status, a.visit_type, s.start_at,
+       dr.name AS doctor_name, u.name AS patient_name,
+       EXISTS (SELECT 1 FROM queue_entries q WHERE q.appointment_id = a.id) AS checked_in
+FROM appointments a
+JOIN slots s    ON s.id = a.slot_id
+JOIN doctors dr ON dr.id = s.doctor_id
+JOIN users u    ON u.id = a.patient_id
+WHERE s.department_id = sqlc.arg(department_id)
+  AND s.start_at >= sqlc.arg(from_at) AND s.start_at < sqlc.arg(to_at)
+  AND a.status IN ('booked', 'completed')
+ORDER BY s.start_at, a.created_at;

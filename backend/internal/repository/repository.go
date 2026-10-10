@@ -35,6 +35,8 @@ type AppointmentRepository interface {
 	// GetAppointmentWithSlot は患者スコープなし。スタッフ操作（来院受付）専用。
 	GetAppointmentWithSlot(ctx context.Context, id uuid.UUID) (db.GetAppointmentWithSlotRow, error)
 	CompleteAppointment(ctx context.Context, id uuid.UUID) (int64, error)
+	// ListAppointmentsForStaff は氏名を含む。スタッフ操作専用。
+	ListAppointmentsForStaff(ctx context.Context, arg db.ListAppointmentsForStaffParams) ([]db.ListAppointmentsForStaffRow, error)
 	ListAppointmentsNeedingReminder(ctx context.Context, arg db.ListAppointmentsNeedingReminderParams) ([]db.ListAppointmentsNeedingReminderRow, error)
 	CountPatientBookingsAt(ctx context.Context, arg db.CountPatientBookingsAtParams) (int64, error)
 	ListBookedAppointmentsForNotice(ctx context.Context, arg db.ListBookedAppointmentsForNoticeParams) ([]db.ListBookedAppointmentsForNoticeRow, error)
@@ -91,6 +93,7 @@ type AdminRepository interface {
 	UpdateDepartmentSettings(ctx context.Context, arg db.UpdateDepartmentSettingsParams) (db.Department, error)
 	DeleteDoctorSchedules(ctx context.Context, doctorID int64) error
 	CreateDoctorSchedule(ctx context.Context, arg db.CreateDoctorScheduleParams) error
+	ListDoctorSchedules(ctx context.Context, doctorID int64) ([]db.DoctorSchedule, error)
 	ListSchedulesByWeekday(ctx context.Context, weekday int16) ([]db.ListSchedulesByWeekdayRow, error)
 	CreateClosure(ctx context.Context, arg db.CreateClosureParams) error
 	InsertAuditLog(ctx context.Context, arg db.InsertAuditLogParams) error

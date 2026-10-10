@@ -78,6 +78,18 @@ type StaffQueueEntry struct {
 	CheckedInAt time.Time
 }
 
+// StaffAppointment はスタッフ向けの予約 1 件（氏名を含む）。CheckedIn は待機列に入っているか。
+type StaffAppointment struct {
+	ID            uuid.UUID
+	AppointmentNo string
+	SlotStart     time.Time
+	Doctor        string
+	PatientName   string
+	VisitType     string
+	Status        string // booked | completed
+	CheckedIn     bool
+}
+
 // QueueService は来院受付・呼出・診察・当日受付と、スタッフ向け待機列。
 // 予約患者と当日受付を 1 つの列(queue_entries)で扱い、順序は sort_time で決める:
 //   - 予約: max(予約時刻, 来院受付時刻)  → 早着でも予約時刻、遅刻者は先着の当日患者を追い越さない
@@ -92,6 +104,8 @@ type QueueService interface {
 	Complete(ctx context.Context, entryID uuid.UUID) (*QueueState, error)
 	CreateWalkIn(ctx context.Context, in WalkInInput) (*WalkInTicket, error)
 	ListStaffQueue(ctx context.Context, departmentID int64) ([]StaffQueueEntry, error)
+	// ListAppointmentsForStaff は来院受付の入口となる、指定日(零値なら今日)の予約一覧。
+	ListAppointmentsForStaff(ctx context.Context, departmentID int64, date time.Time) ([]StaffAppointment, error)
 }
 
 type queueService struct {
@@ -314,6 +328,29 @@ func (s *queueService) ListStaffQueue(ctx context.Context, departmentID int64) (
 		out = append(out, StaffQueueEntry{
 			ID: r.ID, TicketNo: int(r.TicketNo), Source: r.Source, Status: r.Status,
 			PatientName: r.PatientName, SymptomNote: r.SymptomNote, CheckedInAt: r.CheckedInAt.Time.In(domain.JST),
+		})
+	}
+	return out, nil
+}
+
+// ListAppointmentsForStaff: 指定日(零値なら今日)の予約。取消済みは含まない。
+// 氏名を含むため StaffOnly + 監査ログで保護する。
+func (s *queueService) ListAppointmentsForStaff(ctx context.Context, departmentID int64, date time.Time) ([]StaffAppointment, error) {
+	if date.IsZero() {
+		date = s.now()
+	}
+	from := domain.StartOfDay(date)
+	rows, err := s.repos.Appointments.ListAppointmentsForStaff(ctx, db.ListAppointmentsForStaffParams{
+		DepartmentID: departmentID, FromAt: tsOf(from), ToAt: tsOf(from.AddDate(0, 0, 1)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]StaffAppointment, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, StaffAppointment{
+			ID: r.ID, AppointmentNo: r.AppointmentNo, SlotStart: r.StartAt.Time.In(domain.JST), Doctor: r.DoctorName,
+			PatientName: r.PatientName, VisitType: r.VisitType, Status: r.Status, CheckedIn: r.CheckedIn,
 		})
 	}
 	return out, nil

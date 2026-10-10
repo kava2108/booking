@@ -81,6 +81,8 @@ type Querier interface {
 	// 対象 ID とアクションのみ記録する。症状メモ等の本文は記録しない。
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
 	ListAppointmentsByPatient(ctx context.Context, patientID uuid.UUID) ([]ListAppointmentsByPatientRow, error)
+	// スタッフの来院受付用: 指定診療科の [from_at, to_at) の予約（有効・完了のみ）。氏名を含むため StaffOnly + 監査で保護する。
+	ListAppointmentsForStaff(ctx context.Context, arg ListAppointmentsForStaffParams) ([]ListAppointmentsForStaffRow, error)
 	// 診療日が [from_at, to_at) の有効な予約のうち、リマインド未登録のもの。
 	ListAppointmentsNeedingReminder(ctx context.Context, arg ListAppointmentsNeedingReminderParams) ([]ListAppointmentsNeedingReminderRow, error)
 	// 休診の影響を受ける予約者（REQ-005-AC-3）。doctor_id NULL なら全医師。
@@ -90,6 +92,8 @@ type Querier interface {
 	ListClosuresFrom(ctx context.Context, after pgtype.Timestamptz) ([]ListClosuresFromRow, error)
 	// IMP 5-clinic-reservation-sqlc-repository TASK-0001 / マスタ・設定・休診・監査（REQ-006, REQ-005-AC-3, REQ-007-AC-3）
 	ListDepartments(ctx context.Context) ([]Department, error)
+	// 管理者画面の現在のスケジュール表示用（曜日 → 開始時刻の順）。
+	ListDoctorSchedules(ctx context.Context, doctorID int64) ([]DoctorSchedule, error)
 	ListDoctors(ctx context.Context, departmentID int64) ([]Doctor, error)
 	// 待機中で、前にいる人数が max_ahead 以下になった患者（アカウントあり）のうち、通知未登録のもの。
 	ListQueueEntriesNeedingNearNotice(ctx context.Context, arg ListQueueEntriesNeedingNearNoticeParams) ([]ListQueueEntriesNeedingNearNoticeRow, error)

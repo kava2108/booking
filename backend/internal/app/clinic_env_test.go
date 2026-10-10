@@ -146,7 +146,13 @@ func (a *clinicApp) call(method, path string, body any, token string) *httptest.
 // assertConforms: レスポンスが OpenAPI のスキーマに合致する（定義にない 404 ルートなどは対象外）。
 func (a *clinicApp) assertConforms(req *http.Request, rec *httptest.ResponseRecorder) {
 	a.t.Helper()
-	route, params, err := a.router.FindRoute(req)
+	conformsToOpenAPI(a.t, a.router, req, rec)
+}
+
+// conformsToOpenAPI は clinic / auth の統合テストで共有する契約チェック。
+func conformsToOpenAPI(t *testing.T, router routers.Router, req *http.Request, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	route, params, err := router.FindRoute(req)
 	if err != nil {
 		return // OpenAPI に無いパス
 	}
@@ -161,7 +167,7 @@ func (a *clinicApp) assertConforms(req *http.Request, rec *httptest.ResponseReco
 		Options: &openapi3filter.Options{IncludeResponseStatus: true},
 	}
 	if err := openapi3filter.ValidateResponse(context.Background(), in); err != nil {
-		a.t.Errorf("OpenAPI 契約違反 %s %s -> %d: %v\nbody: %s", req.Method, req.URL.Path, rec.Code, err, rec.Body.String())
+		t.Errorf("OpenAPI 契約違反 %s %s -> %d: %v\nbody: %s", req.Method, req.URL.Path, rec.Code, err, rec.Body.String())
 	}
 }
 

@@ -296,7 +296,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 医師の現在の診療スケジュール */
+        get: operations["getSchedules"];
         /** 診療時間・枠長・定員の設定と枠生成 */
         put: operations["putSchedules"];
         post?: never;
@@ -313,10 +314,139 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 現在の設定（受付期間・キャンセル期限・診療科ごとの設定） */
+        get: operations["getSettings"];
         /** 受付期間・キャンセル期限・標準診察時間 */
         put: operations["putSettings"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/appointments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 来院受付用の指定日の予約一覧（氏名を含む）
+         * @description 個人情報を含むため監査ログに記録される。date 省略時は今日（JST）
+         */
+        get: operations["listStaffAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ユーザー登録 */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ログイン（アクセストークンを返し、リフレッシュトークンを Cookie に設定）
+         * @description 同一アカウントの連続 5 回の失敗で 15 分ロック（429 + Retry-After）
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** アクセストークンの更新（リフレッシュトークンをローテーション） */
+        post: operations["refreshToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ログアウト（リフレッシュトークンを失効し Cookie を削除） */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** パスワードリセットの申請（登録の有無にかかわらず同一応答） */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * パスワードリセットの確定（全セッションを失効）
+         * @description 期限切れ・使用済みトークンは 400
+         */
+        post: operations["confirmPasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -327,6 +457,86 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RegisterRequest: {
+            /** Format: email */
+            email: string;
+            /** @description 12 文字以上（bcrypt の上限 72 bytes 以内） */
+            password: string;
+            name: string;
+        };
+        RegisterResponse: {
+            /** Format: uuid */
+            user_id: string;
+            email: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        TokenResponse: {
+            /** @description JWT（HS256、15 分）。メモリにのみ保持する */
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /** @example 900 */
+            expires_in: number;
+        };
+        MessageResponse: {
+            message: string;
+        };
+        PasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        PasswordResetConfirmRequest: {
+            token: string;
+            new_password: string;
+        };
+        StaffAppointment: {
+            /**
+             * Format: uuid
+             * @description 来院受付（check-in）にはこの予約 ID を使う
+             */
+            id: string;
+            appointment_no: string;
+            /** Format: date-time */
+            slot_start: string;
+            doctor: string;
+            patient_name: string;
+            /** @enum {string} */
+            visit_type: "first" | "revisit";
+            /** @enum {string} */
+            status: "booked" | "completed";
+            checked_in: boolean;
+        };
+        DepartmentSettings: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            standard_consult_minutes?: number | null;
+            /** @example 11:30 */
+            walkin_cutoff?: string | null;
+            walkin_capacity?: number | null;
+        };
+        ScheduleItem: {
+            /** @description 0=日曜 */
+            weekday: number;
+            /** @example 09:00 */
+            start_time: string;
+            /** @example 12:00 */
+            end_time: string;
+            slot_minutes: number;
+            capacity: number;
+        };
+        Schedules: {
+            /** Format: int64 */
+            doctor_id: number;
+            schedules: components["schemas"]["ScheduleItem"][];
+        };
         Error: {
             /** @example slot_full */
             error: string;
@@ -495,16 +705,7 @@ export interface components {
         SchedulesRequest: {
             /** Format: int64 */
             doctor_id: number;
-            schedules: {
-                /** @description 0=日曜 */
-                weekday: number;
-                /** @example 09:00 */
-                start_time: string;
-                /** @example 12:00 */
-                end_time: string;
-                slot_minutes: number;
-                capacity: number;
-            }[];
+            schedules: components["schemas"]["ScheduleItem"][];
         };
         SettingsRequest: {
             cancel_deadline_minutes?: number;
@@ -521,11 +722,22 @@ export interface components {
         Settings: {
             cancel_deadline_minutes: number;
             booking_window_days: number;
+            /** @description GET で返す。PUT の応答には含まれない */
+            departments?: components["schemas"]["DepartmentSettings"][];
         };
     };
     responses: {
         /** @description サーバー内部エラー（詳細は応答に含めない。request_id で調査する） */
         InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description リクエストボディが大きすぎる（上限 1MB） */
+        PayloadTooLarge: {
             headers: {
                 [name: string]: unknown;
             };
@@ -707,6 +919,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             500: components["responses"]["InternalError"];
         };
@@ -785,6 +998,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             500: components["responses"]["InternalError"];
         };
@@ -861,6 +1075,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             500: components["responses"]["InternalError"];
         };
@@ -891,6 +1106,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             500: components["responses"]["InternalError"];
         };
@@ -1055,6 +1271,33 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getSchedules: {
+        parameters: {
+            query: {
+                doctor_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedules"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             422: components["responses"]["Unprocessable"];
             500: components["responses"]["InternalError"];
         };
@@ -1082,7 +1325,31 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1111,7 +1378,208 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listStaffAppointments: {
+        parameters: {
+            query: {
+                department_id: number;
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAppointment"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description refresh_token（HttpOnly; SameSite=Strict; Path=/api/v1/auth） */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    refreshToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                /** @description HttpOnly Cookie（ログイン/更新時に Set-Cookie で発行される） */
+                refresh_token?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description refresh_token（HttpOnly; SameSite=Strict; Path=/api/v1/auth） */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                /** @description HttpOnly Cookie（ログイン/更新時に Set-Cookie で発行される） */
+                refresh_token?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalError"];
         };
     };

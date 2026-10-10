@@ -60,6 +60,25 @@ type Settings struct {
 type AdminService interface {
 	PutSchedules(ctx context.Context, in PutSchedulesInput) error
 	PutSettings(ctx context.Context, in SettingsInput) (*Settings, error)
+	// GetSettings / GetSchedules は管理者画面に現在の値を表示するための参照。
+	GetSettings(ctx context.Context) (*SettingsView, error)
+	GetSchedules(ctx context.Context, doctorID int64) ([]ScheduleInput, error)
+}
+
+// DepartmentSettingsView は診療科ごとの現在の設定。未設定の項目は nil。
+type DepartmentSettingsView struct {
+	ID                     int64
+	Name                   string
+	StandardConsultMinutes *int
+	WalkinCutoff           *string // "HH:MM"
+	WalkinCapacity         *int
+}
+
+// SettingsView は医療機関設定と診療科設定の現在値。
+type SettingsView struct {
+	CancelDeadlineMinutes int
+	BookingWindowDays     int
+	Departments           []DepartmentSettingsView
 }
 
 // SlotGenerator は保存後に枠を生成するために使う。
@@ -257,6 +276,57 @@ func (s *adminService) PutSettings(ctx context.Context, in SettingsInput) (*Sett
 	})
 	if err != nil {
 		return nil, err
+	}
+	return out, nil
+}
+
+func (s *adminService) GetSettings(ctx context.Context) (*SettingsView, error) {
+	cfg, err := s.repos.Admin.GetClinicSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	depts, err := s.repos.Admin.ListDepartments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := &SettingsView{CancelDeadlineMinutes: int(cfg.CancelDeadlineMinutes), BookingWindowDays: int(cfg.BookingWindowDays), Departments: make([]DepartmentSettingsView, 0, len(depts))}
+	for _, d := range depts {
+		v := DepartmentSettingsView{ID: d.ID, Name: d.Name}
+		if d.StandardConsultMinutes.Valid {
+			n := int(d.StandardConsultMinutes.Int32)
+			v.StandardConsultMinutes = &n
+		}
+		if d.WalkinCutoff.Valid {
+			c := domain.FormatClock(time.Duration(d.WalkinCutoff.Microseconds) * time.Microsecond)
+			v.WalkinCutoff = &c
+		}
+		if d.WalkinCapacity.Valid {
+			n := int(d.WalkinCapacity.Int32)
+			v.WalkinCapacity = &n
+		}
+		out.Departments = append(out.Departments, v)
+	}
+	return out, nil
+}
+
+func (s *adminService) GetSchedules(ctx context.Context, doctorID int64) ([]ScheduleInput, error) {
+	if _, err := s.repos.Admin.GetDoctor(ctx, doctorID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, validationError("doctor_id", "unknown doctor")
+		}
+		return nil, err
+	}
+	rows, err := s.repos.Admin.ListDoctorSchedules(ctx, doctorID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ScheduleInput, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ScheduleInput{
+			Weekday: int(r.Weekday), SlotMinutes: int(r.SlotMinutes), Capacity: int(r.Capacity),
+			StartTime: domain.FormatClock(time.Duration(r.StartTime.Microseconds) * time.Microsecond),
+			EndTime:   domain.FormatClock(time.Duration(r.EndTime.Microseconds) * time.Microsecond),
+		})
 	}
 	return out, nil
 }

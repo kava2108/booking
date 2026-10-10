@@ -228,6 +228,67 @@ func (q *Queries) ListAppointmentsByPatient(ctx context.Context, patientID uuid.
 	return items, nil
 }
 
+const listAppointmentsForStaff = `-- name: ListAppointmentsForStaff :many
+SELECT a.id, a.appointment_no, a.status, a.visit_type, s.start_at,
+       dr.name AS doctor_name, u.name AS patient_name,
+       EXISTS (SELECT 1 FROM queue_entries q WHERE q.appointment_id = a.id) AS checked_in
+FROM appointments a
+JOIN slots s    ON s.id = a.slot_id
+JOIN doctors dr ON dr.id = s.doctor_id
+JOIN users u    ON u.id = a.patient_id
+WHERE s.department_id = $1
+  AND s.start_at >= $2 AND s.start_at < $3
+  AND a.status IN ('booked', 'completed')
+ORDER BY s.start_at, a.created_at
+`
+
+type ListAppointmentsForStaffParams struct {
+	DepartmentID int64
+	FromAt       pgtype.Timestamptz
+	ToAt         pgtype.Timestamptz
+}
+
+type ListAppointmentsForStaffRow struct {
+	ID            uuid.UUID
+	AppointmentNo string
+	Status        string
+	VisitType     string
+	StartAt       pgtype.Timestamptz
+	DoctorName    string
+	PatientName   string
+	CheckedIn     bool
+}
+
+// スタッフの来院受付用: 指定診療科の [from_at, to_at) の予約（有効・完了のみ）。氏名を含むため StaffOnly + 監査で保護する。
+func (q *Queries) ListAppointmentsForStaff(ctx context.Context, arg ListAppointmentsForStaffParams) ([]ListAppointmentsForStaffRow, error) {
+	rows, err := q.db.Query(ctx, listAppointmentsForStaff, arg.DepartmentID, arg.FromAt, arg.ToAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAppointmentsForStaffRow{}
+	for rows.Next() {
+		var i ListAppointmentsForStaffRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppointmentNo,
+			&i.Status,
+			&i.VisitType,
+			&i.StartAt,
+			&i.DoctorName,
+			&i.PatientName,
+			&i.CheckedIn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAppointmentsNeedingReminder = `-- name: ListAppointmentsNeedingReminder :many
 SELECT a.id, a.appointment_no, a.patient_id, s.start_at, d.name AS department_name, dr.name AS doctor_name
 FROM appointments a

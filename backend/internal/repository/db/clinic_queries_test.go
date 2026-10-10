@@ -976,3 +976,73 @@ func TestScheduledAndLaterDoctors(t *testing.T) {
 	assert.EqualValues(t, 0, scheduled(at(10, 0)))
 	assert.EqualValues(t, 0, later(at(8, 0)))
 }
+
+// ---------- フロントエンド対応: スタッフの当日予約一覧 / 管理者の現在設定の参照 ----------
+
+func TestListAppointmentsForStaff(t *testing.T) {
+	e := newClinicEnv(t)
+	a1 := e.book(t, e.patient1, e.slot(t, at(9, 30), 2), "A-1")
+	a2 := e.book(t, e.patient2, e.slot(t, at(10, 0), 2), "A-2")
+	canceled := e.book(t, e.patient2, e.slot(t, at(10, 30), 2), "A-3")
+	_, err := e.q.CancelAppointment(e.ctx, db.CancelAppointmentParams{ID: canceled.ID, PatientID: e.patient2.ID})
+	require.NoError(t, err)
+	e.book(t, e.patient1, e.slot(t, at(0, 0).AddDate(0, 0, 1).Add(9*time.Hour), 2), "A-TOMORROW")
+	// a1 は来院受付済み、a2 は完了済み
+	_, err = e.q.EnqueueEntry(e.ctx, db.EnqueueEntryParams{
+		DepartmentID: e.deptID, AppointmentID: puuid(a1.ID), PatientID: puuid(e.patient1.ID), Source: "reservation",
+		ServiceDate: date(day), TicketNo: 1, SortTime: ts(at(9, 30)), CheckedInAt: ts(at(9, 0)),
+	})
+	require.NoError(t, err)
+	_, err = e.q.CompleteAppointment(e.ctx, a2.ID)
+	require.NoError(t, err)
+
+	rows, err := e.q.ListAppointmentsForStaff(e.ctx, db.ListAppointmentsForStaffParams{DepartmentID: e.deptID, FromAt: ts(at(0, 0)), ToAt: ts(at(0, 0).AddDate(0, 0, 1))})
+	require.NoError(t, err)
+
+	require.Len(t, rows, 2, "当日の有効な予約のみ（取消・翌日は除く）")
+	assert.Equal(t, "A-1", rows[0].AppointmentNo)
+	assert.Equal(t, "患者1", rows[0].PatientName)
+	assert.Equal(t, "山田", rows[0].DoctorName)
+	assert.True(t, rows[0].CheckedIn)
+	assert.Equal(t, "booked", rows[0].Status)
+	assert.Equal(t, "A-2", rows[1].AppointmentNo)
+	assert.False(t, rows[1].CheckedIn)
+	assert.Equal(t, "completed", rows[1].Status)
+}
+
+func TestListDoctorSchedules(t *testing.T) {
+	e := newClinicEnv(t)
+	for _, sch := range []struct {
+		wd         int
+		start, end string
+	}{{3, "09:00", "12:00"}, {1, "14:00", "17:00"}, {1, "09:00", "12:00"}} {
+		_, err := e.pool.Exec(e.ctx, `INSERT INTO doctor_schedules(doctor_id,weekday,start_time,end_time,slot_minutes,capacity) VALUES ($1,$2,$3,$4,30,2)`, e.doctorID, sch.wd, sch.start, sch.end)
+		require.NoError(t, err)
+	}
+	var otherDoc int64
+	require.NoError(t, e.pool.QueryRow(e.ctx, `INSERT INTO doctors(department_id,name) VALUES ($1,'佐藤') RETURNING id`, e.deptID).Scan(&otherDoc))
+	_, err := e.pool.Exec(e.ctx, `INSERT INTO doctor_schedules(doctor_id,weekday,start_time,end_time,slot_minutes,capacity) VALUES ($1,2,'09:00','10:00',20,1)`, otherDoc)
+	require.NoError(t, err)
+
+	rows, err := e.q.ListDoctorSchedules(e.ctx, e.doctorID)
+	require.NoError(t, err)
+
+	require.Len(t, rows, 3, "指定した医師のみ")
+	assert.EqualValues(t, 1, rows[0].Weekday, "曜日、開始時刻の順")
+	assert.EqualValues(t, 9*3600*1e6, rows[0].StartTime.Microseconds)
+	assert.EqualValues(t, 1, rows[1].Weekday)
+	assert.EqualValues(t, 3, rows[2].Weekday)
+}
+
+func TestListDepartmentsForAdminIncludesSettings(t *testing.T) {
+	e := newClinicEnv(t)
+	_, err := e.q.UpdateDepartmentSettings(e.ctx, db.UpdateDepartmentSettingsParams{ID: e.deptID, StandardConsultMinutes: pgtype.Int4{Int32: 15, Valid: true}, WalkinCapacity: pgtype.Int4{Int32: 20, Valid: true}})
+	require.NoError(t, err)
+
+	deps, err := e.q.ListDepartments(e.ctx)
+	require.NoError(t, err)
+	require.Len(t, deps, 1)
+	assert.EqualValues(t, 15, deps[0].StandardConsultMinutes.Int32)
+	assert.EqualValues(t, 20, deps[0].WalkinCapacity.Int32)
+	assert.False(t, deps[0].WalkinCutoff.Valid)
+}

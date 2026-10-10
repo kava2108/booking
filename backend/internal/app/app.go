@@ -103,7 +103,8 @@ func New(d Deps) *echo.Echo {
 		qh := handler.NewQueueHandler(d.Queue)
 		qh.PatientRoutes(v1, jwt)
 		audit := middleware.AuditLog(d.Audit, "view_staff_queue", func(c echo.Context) string { return "department:" + c.QueryParam("department_id") })
-		qh.StaffRoutes(v1.Group("/staff"), jwt, middleware.StaffOnly(), audit)
+		auditAppts := middleware.AuditLog(d.Audit, "view_staff_appointments", func(c echo.Context) string { return "department:" + c.QueryParam("department_id") })
+		qh.StaffRoutes(v1.Group("/staff"), jwt, middleware.StaffOnly(), audit, auditAppts)
 	}
 	if d.Closures != nil && d.Tokens != nil {
 		handler.NewClosureHandler(d.Closures).Routes(v1.Group("/staff"), middleware.JWTAuth(d.Tokens), middleware.StaffOnly())

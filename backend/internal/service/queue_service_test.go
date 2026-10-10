@@ -438,3 +438,36 @@ func TestListStaffQueue_EmptyIsNotNil(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, got)
 }
+
+// ---------- スタッフの当日予約一覧（来院受付の入口） ----------
+
+func TestListAppointmentsForStaff(t *testing.T) {
+	e := newClinicEnv(t)
+	from := domain.StartOfDay(clinicNow)
+	e.queue.EXPECT().ListStaffQueue(mock.Anything, mock.Anything).Maybe()
+	e.appts.EXPECT().ListAppointmentsForStaff(mock.Anything, db.ListAppointmentsForStaffParams{DepartmentID: deptID, FromAt: tsOf(from), ToAt: tsOf(from.AddDate(0, 0, 1))}).Return([]db.ListAppointmentsForStaffRow{
+		{ID: apptID, AppointmentNo: "A-1", Status: "booked", VisitType: "first", StartAt: tsOf(day(12, 9, 30)), DoctorName: "山田", PatientName: "患者1", CheckedIn: true},
+		{ID: uuid.New(), AppointmentNo: "A-2", Status: "completed", VisitType: "revisit", StartAt: tsOf(day(12, 10, 0)), DoctorName: "山田", PatientName: "患者2"},
+	}, nil)
+
+	got, err := newQueueService(e).ListAppointmentsForStaff(context.Background(), deptID, time.Time{})
+	require.NoError(t, err)
+
+	require.Len(t, got, 2)
+	assert.Equal(t, apptID, got[0].ID)
+	assert.Equal(t, "患者1", got[0].PatientName)
+	assert.True(t, got[0].CheckedIn)
+	assert.False(t, got[1].CheckedIn)
+	assert.True(t, got[0].SlotStart.Equal(day(12, 9, 30)))
+}
+
+func TestListAppointmentsForStaff_SpecificDateAndEmpty(t *testing.T) {
+	e := newClinicEnv(t)
+	from := day(14, 0, 0)
+	e.appts.EXPECT().ListAppointmentsForStaff(mock.Anything, db.ListAppointmentsForStaffParams{DepartmentID: deptID, FromAt: tsOf(from), ToAt: tsOf(from.AddDate(0, 0, 1))}).Return(nil, nil)
+
+	got, err := newQueueService(e).ListAppointmentsForStaff(context.Background(), deptID, day(14, 15, 30))
+	require.NoError(t, err)
+	assert.NotNil(t, got, "空でも null ではなく空配列")
+	assert.Empty(t, got)
+}

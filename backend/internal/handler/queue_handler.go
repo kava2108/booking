@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/kava2108/booking/backend/internal/apierror"
+	"github.com/kava2108/booking/backend/internal/domain"
 	"github.com/kava2108/booking/backend/internal/service"
 )
 
@@ -146,16 +147,47 @@ func (h *QueueHandler) ListStaffQueue(c echo.Context) error {
 	return c.JSON(http.StatusOK, out)
 }
 
+type staffAppointmentDTO struct {
+	ID            uuid.UUID `json:"id"`
+	AppointmentNo string    `json:"appointment_no"`
+	SlotStart     time.Time `json:"slot_start"`
+	Doctor        string    `json:"doctor"`
+	PatientName   string    `json:"patient_name"`
+	VisitType     string    `json:"visit_type"`
+	Status        string    `json:"status"`
+	CheckedIn     bool      `json:"checked_in"`
+}
+
+// ListStaffAppointments: GET /api/v1/staff/appointments?department_id=&date=
+// 来院受付の入口。症状メモは含めない（最小限の個人情報）。
+func (h *QueueHandler) ListStaffAppointments(c echo.Context) error {
+	deptID, _, _ := queryInt64(c, "department_id", true) // 検証済み（requirePositiveIntQuery）
+	var date time.Time
+	if raw := c.QueryParam("date"); raw != "" {
+		date, _ = domain.ParseDate(raw) // 検証済み（requireDateQuery）
+	}
+	rows, err := h.svc.ListAppointmentsForStaff(c.Request().Context(), deptID, date)
+	if err != nil {
+		return queueError(c, err)
+	}
+	out := make([]staffAppointmentDTO, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, staffAppointmentDTO{ID: r.ID, AppointmentNo: r.AppointmentNo, SlotStart: r.SlotStart, Doctor: r.Doctor, PatientName: r.PatientName, VisitType: r.VisitType, Status: r.Status, CheckedIn: r.CheckedIn})
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
 // PatientRoutes は患者本人の当日受付（認証必須）。
 func (h *QueueHandler) PatientRoutes(g *echo.Group, jwtAuth echo.MiddlewareFunc) {
 	g.POST("/walk-ins", h.CreateWalkIn, jwtAuth, noStore)
 }
 
 // StaffRoutes は /staff 配下。jwtAuth → staffOnly の順に適用し、待機列の参照は audit で記録する。
-func (h *QueueHandler) StaffRoutes(g *echo.Group, jwtAuth, staffOnly, audit echo.MiddlewareFunc) {
+func (h *QueueHandler) StaffRoutes(g *echo.Group, jwtAuth, staffOnly, audit, auditAppointments echo.MiddlewareFunc) {
 	g.POST("/walk-ins", h.CreateStaffWalkIn, jwtAuth, staffOnly, noStore)
 	// 監査ログは「個人情報を返す」リクエストだけ記録するため、パラメータ検証を監査の前に行う
 	g.GET("/queue", h.ListStaffQueue, jwtAuth, staffOnly, requirePositiveIntQuery("department_id"), audit, noStore)
+	g.GET("/appointments", h.ListStaffAppointments, jwtAuth, staffOnly, requirePositiveIntQuery("department_id"), requireDateQuery("date"), auditAppointments, noStore)
 	g.POST("/queue/:id/check-in", h.action(func(h *QueueHandler, c echo.Context, id uuid.UUID) (*service.QueueState, error) {
 		return h.svc.CheckIn(c.Request().Context(), id)
 	}), jwtAuth, staffOnly, noStore)
@@ -176,6 +208,20 @@ func requirePositiveIntQuery(name string) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			if _, _, bad := queryInt64(c, name, true); bad != nil {
 				return validationFailed(c, *bad)
+			}
+			return next(c)
+		}
+	}
+}
+
+// requireDateQuery は任意の YYYY-MM-DD クエリパラメータを検証するミドルウェア。指定されていて不正なら 422。
+func requireDateQuery(name string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if raw := c.QueryParam(name); raw != "" {
+				if _, err := domain.ParseDate(raw); err != nil {
+					return validationFailed(c, apierror.Field{Field: name, Message: "must be YYYY-MM-DD"})
+				}
 			}
 			return next(c)
 		}
