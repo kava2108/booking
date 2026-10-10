@@ -49,6 +49,11 @@ func TestOpenAPI_EndpointsMatchDesign(t *testing.T) {
 		"POST /api/v1/staff/queue/{id}/start", "POST /api/v1/staff/queue/{id}/complete",
 		"GET /api/v1/staff/queue", "POST /api/v1/staff/closures",
 		"PUT /api/v1/admin/schedules", "PUT /api/v1/admin/settings",
+		// フロントエンド対応で追加: 現在値の参照・スタッフの当日予約一覧
+		"GET /api/v1/admin/schedules", "GET /api/v1/admin/settings", "GET /api/v1/staff/appointments",
+		// 認証（user-auth）
+		"POST /api/v1/auth/register", "POST /api/v1/auth/login", "POST /api/v1/auth/refresh", "POST /api/v1/auth/logout",
+		"POST /api/v1/auth/password-reset/request", "POST /api/v1/auth/password-reset/confirm",
 	}
 	var got []string
 	for _, o := range operations(load(t)) {
@@ -88,7 +93,12 @@ func hasSecurity(doc *openapi3.T, o op) bool {
 // REQ-005-AC-4: 認可要件が定義に明記されている（実装の権限マトリクスのテスト基準になる）
 func TestOpenAPI_AuthorizationMatrix(t *testing.T) {
 	doc := load(t)
-	public := map[string]bool{"/api/v1/departments": true, "/api/v1/doctors": true, "/api/v1/slots": true, "/api/v1/wait-times": true}
+	public := map[string]bool{
+		"/api/v1/departments": true, "/api/v1/doctors": true, "/api/v1/slots": true, "/api/v1/wait-times": true,
+		// 認証系: ログアウト以外は Bearer 不要（リフレッシュは Cookie）
+		"/api/v1/auth/register": true, "/api/v1/auth/login": true, "/api/v1/auth/refresh": true,
+		"/api/v1/auth/password-reset/request": true, "/api/v1/auth/password-reset/confirm": true,
+	}
 
 	for _, o := range operations(doc) {
 		name := o.method + " " + o.path
@@ -183,4 +193,40 @@ func TestOpenAPI_CreateAppointmentRequestRequiredFields(t *testing.T) {
 	req := doc.Components.Schemas["CreateAppointmentRequest"].Value
 	assert.ElementsMatch(t, []string{"slot_id", "visit_type"}, req.Required)
 	assert.ElementsMatch(t, []any{"first", "revisit"}, req.Properties["visit_type"].Value.Enum)
+}
+
+// 認証 API のスキーマ: パスワードは要求のみで、応答に password / hash を含めない
+func TestOpenAPI_AuthSchemas(t *testing.T) {
+	doc := load(t)
+	reg := doc.Components.Schemas["RegisterRequest"].Value
+	assert.ElementsMatch(t, []string{"email", "password", "name"}, reg.Required)
+	assert.Equal(t, uint64(12), reg.Properties["password"].Value.MinLength, "12 文字以上")
+
+	for _, name := range []string{"RegisterResponse", "TokenResponse", "MessageResponse"} {
+		for prop := range doc.Components.Schemas[name].Value.Properties {
+			assert.NotContains(t, strings.ToLower(prop), "password", name)
+			assert.NotContains(t, strings.ToLower(prop), "hash", name)
+		}
+	}
+	tok := doc.Components.Schemas["TokenResponse"].Value
+	assert.ElementsMatch(t, []string{"access_token", "token_type", "expires_in"}, tok.Required)
+	assert.NotContains(t, tok.Properties, "refresh_token", "リフレッシュトークンは HttpOnly Cookie のみで返す")
+}
+
+// 管理者画面の現在値の参照は、更新と同じスキーマで表現できる
+func TestOpenAPI_AdminReadModels(t *testing.T) {
+	doc := load(t)
+	settings := doc.Components.Schemas["Settings"].Value
+	assert.Contains(t, settings.Properties, "departments")
+	item := settings.Properties["departments"].Value.Items.Value
+	for _, k := range []string{"id", "name", "standard_consult_minutes", "walkin_cutoff", "walkin_capacity"} {
+		assert.Contains(t, item.Properties, k)
+	}
+	assert.Contains(t, doc.Components.Schemas["Schedules"].Value.Properties, "schedules")
+
+	sa := doc.Components.Schemas["StaffAppointment"].Value
+	for _, k := range []string{"id", "appointment_no", "slot_start", "doctor", "patient_name", "status", "checked_in"} {
+		assert.Contains(t, sa.Properties, k)
+	}
+	assert.NotContains(t, sa.Properties, "symptom_note", "来院受付の一覧に症状メモは不要（最小限の個人情報）")
 }

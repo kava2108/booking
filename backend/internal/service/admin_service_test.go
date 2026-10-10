@@ -253,3 +253,60 @@ func TestPutSettings_UnknownDepartment(t *testing.T) {
 	_, err := newAdminService(e, &fakeGenerator{}).PutSettings(context.Background(), service.SettingsInput{Departments: []service.DepartmentSettingsInput{{ID: 99}}})
 	assert.Contains(t, fieldsOf(t, err), "departments[0].id")
 }
+
+// ---------- 現在の設定・スケジュールの参照（管理者画面用） ----------
+
+func TestGetSettings(t *testing.T) {
+	e := newClinicEnv(t)
+	e.admin.EXPECT().GetClinicSettings(mock.Anything).Return(db.ClinicSetting{ID: 1, CancelDeadlineMinutes: 90, BookingWindowDays: 21}, nil)
+	e.admin.EXPECT().ListDepartments(mock.Anything).Return([]db.Department{
+		{ID: 1, Name: "内科", StandardConsultMinutes: pgtype.Int4{Int32: 15, Valid: true}, WalkinCutoff: clockOf(11, 30), WalkinCapacity: pgtype.Int4{Int32: 20, Valid: true}},
+		{ID: 2, Name: "小児科"},
+	}, nil)
+
+	got, err := newAdminService(e, &fakeGenerator{}).GetSettings(context.Background())
+	require.NoError(t, err)
+
+	assert.Equal(t, 90, got.CancelDeadlineMinutes)
+	assert.Equal(t, 21, got.BookingWindowDays)
+	require.Len(t, got.Departments, 2)
+	assert.Equal(t, "内科", got.Departments[0].Name)
+	assert.Equal(t, 15, *got.Departments[0].StandardConsultMinutes)
+	assert.Equal(t, "11:30", *got.Departments[0].WalkinCutoff)
+	assert.Equal(t, 20, *got.Departments[0].WalkinCapacity)
+	assert.Nil(t, got.Departments[1].StandardConsultMinutes, "未設定は nil")
+	assert.Nil(t, got.Departments[1].WalkinCutoff)
+	assert.Nil(t, got.Departments[1].WalkinCapacity)
+}
+
+func TestGetSchedules(t *testing.T) {
+	e := newClinicEnv(t)
+	e.admin.EXPECT().GetDoctor(mock.Anything, int64(7)).Return(db.Doctor{ID: 7}, nil)
+	e.admin.EXPECT().ListDoctorSchedules(mock.Anything, int64(7)).Return([]db.DoctorSchedule{
+		{DoctorID: 7, Weekday: 1, StartTime: clockOf(9, 0), EndTime: clockOf(12, 0), SlotMinutes: 30, Capacity: 2},
+		{DoctorID: 7, Weekday: 3, StartTime: clockOf(14, 5), EndTime: clockOf(17, 0), SlotMinutes: 20, Capacity: 1},
+	}, nil)
+
+	got, err := newAdminService(e, &fakeGenerator{}).GetSchedules(context.Background(), 7)
+	require.NoError(t, err)
+
+	assert.Equal(t, []service.ScheduleInput{
+		{Weekday: 1, StartTime: "09:00", EndTime: "12:00", SlotMinutes: 30, Capacity: 2},
+		{Weekday: 3, StartTime: "14:05", EndTime: "17:00", SlotMinutes: 20, Capacity: 1},
+	}, got)
+}
+
+func TestGetSchedules_EmptyAndUnknownDoctor(t *testing.T) {
+	e := newClinicEnv(t)
+	e.admin.EXPECT().GetDoctor(mock.Anything, int64(7)).Return(db.Doctor{ID: 7}, nil)
+	e.admin.EXPECT().ListDoctorSchedules(mock.Anything, int64(7)).Return(nil, nil)
+	got, err := newAdminService(e, &fakeGenerator{}).GetSchedules(context.Background(), 7)
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+	assert.Empty(t, got)
+
+	e2 := newClinicEnv(t)
+	e2.admin.EXPECT().GetDoctor(mock.Anything, int64(99)).Return(db.Doctor{}, pgx.ErrNoRows)
+	_, err = newAdminService(e2, &fakeGenerator{}).GetSchedules(context.Background(), 99)
+	assert.Equal(t, []string{"doctor_id"}, fieldsOf(t, err))
+}

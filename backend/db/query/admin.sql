@@ -67,3 +67,7 @@ ORDER BY lower(period);
 -- 診療科の行をロックする（トランザクション内）。同じ診療科への同時の受付を直列化し、
 -- 当日受付の定員判定と受付番号の採番の競合を防ぐ。
 SELECT id FROM departments WHERE id = $1 FOR UPDATE;
+
+-- name: ListDoctorSchedules :many
+-- 管理者画面の現在のスケジュール表示用（曜日 → 開始時刻の順）。
+SELECT * FROM doctor_schedules WHERE doctor_id = $1 ORDER BY weekday, start_time;

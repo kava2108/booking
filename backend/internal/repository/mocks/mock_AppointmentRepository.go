@@ -425,6 +425,65 @@ func (_c *MockAppointmentRepository_ListAppointmentsByPatient_Call) RunAndReturn
 	return _c
 }
 
+// ListAppointmentsForStaff provides a mock function with given fields: ctx, arg
+func (_m *MockAppointmentRepository) ListAppointmentsForStaff(ctx context.Context, arg db.ListAppointmentsForStaffParams) ([]db.ListAppointmentsForStaffRow, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListAppointmentsForStaff")
+	}
+
+	var r0 []db.ListAppointmentsForStaffRow
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.ListAppointmentsForStaffParams) ([]db.ListAppointmentsForStaffRow, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.ListAppointmentsForStaffParams) []db.ListAppointmentsForStaffRow); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]db.ListAppointmentsForStaffRow)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.ListAppointmentsForStaffParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockAppointmentRepository_ListAppointmentsForStaff_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListAppointmentsForStaff'
+type MockAppointmentRepository_ListAppointmentsForStaff_Call struct {
+	*mock.Call
+}
+
+// ListAppointmentsForStaff is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.ListAppointmentsForStaffParams
+func (_e *MockAppointmentRepository_Expecter) ListAppointmentsForStaff(ctx interface{}, arg interface{}) *MockAppointmentRepository_ListAppointmentsForStaff_Call {
+	return &MockAppointmentRepository_ListAppointmentsForStaff_Call{Call: _e.mock.On("ListAppointmentsForStaff", ctx, arg)}
+}
+
+func (_c *MockAppointmentRepository_ListAppointmentsForStaff_Call) Run(run func(ctx context.Context, arg db.ListAppointmentsForStaffParams)) *MockAppointmentRepository_ListAppointmentsForStaff_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.ListAppointmentsForStaffParams))
+	})
+	return _c
+}
+
+func (_c *MockAppointmentRepository_ListAppointmentsForStaff_Call) Return(_a0 []db.ListAppointmentsForStaffRow, _a1 error) *MockAppointmentRepository_ListAppointmentsForStaff_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockAppointmentRepository_ListAppointmentsForStaff_Call) RunAndReturn(run func(context.Context, db.ListAppointmentsForStaffParams) ([]db.ListAppointmentsForStaffRow, error)) *MockAppointmentRepository_ListAppointmentsForStaff_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListAppointmentsNeedingReminder provides a mock function with given fields: ctx, arg
 func (_m *MockAppointmentRepository) ListAppointmentsNeedingReminder(ctx context.Context, arg db.ListAppointmentsNeedingReminderParams) ([]db.ListAppointmentsNeedingReminderRow, error) {
 	ret := _m.Called(ctx, arg)

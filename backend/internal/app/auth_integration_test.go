@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/routers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
@@ -38,13 +39,15 @@ const (
 )
 
 type testApp struct {
-	e     *echo.Echo
-	q     *db.Queries
-	pool  *pgxpool.Pool
-	logs  *bytes.Buffer
-	mail  *recordingMailer
-	tm    *auth.TokenManager
-	users repository.UserRepository
+	t      *testing.T
+	e      *echo.Echo
+	q      *db.Queries
+	pool   *pgxpool.Pool
+	logs   *bytes.Buffer
+	mail   *recordingMailer
+	tm     *auth.TokenManager
+	users  repository.UserRepository
+	router routers.Router
 }
 
 func newApp(t *testing.T, mutate func(*config.Config)) *testApp {
@@ -71,7 +74,7 @@ func newApp(t *testing.T, mutate func(*config.Config)) *testApp {
 		service.WithAsync(func(f func()) { f() }), service.WithLogger(logger))
 
 	e := app.New(app.Deps{Config: cfg, Logger: logger, Auth: svc, Tokens: tm})
-	return &testApp{e: e, q: q, pool: pool, logs: logs, mail: mail, tm: tm, users: users}
+	return &testApp{t: t, router: loadRouter(t), e: e, q: q, pool: pool, logs: logs, mail: mail, tm: tm, users: users}
 }
 
 type recordingMailer struct {
@@ -112,6 +115,7 @@ func (a *testApp) do(method, path string, body any, mods ...func(*http.Request))
 	}
 	rec := httptest.NewRecorder()
 	a.e.ServeHTTP(rec, req)
+	conformsToOpenAPI(a.t, a.router, req, rec) // 認証 API の応答も OpenAPI 定義と突き合わせる
 	return rec
 }
 

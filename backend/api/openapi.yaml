@@ -12,6 +12,8 @@ servers:
 security:
   - bearerAuth: []
 tags:
+  - name: auth
+    description: 認証（登録・ログイン・更新・ログアウト・パスワードリセット）
   - name: catalog
     description: 診療科・医師・空き枠（認証不要）
   - name: appointments
@@ -121,6 +123,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "201":
           description: OK
           content:
@@ -169,6 +173,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "200":
           description: OK
           content:
@@ -256,6 +262,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "201":
           description: OK
           content:
@@ -285,6 +293,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "201":
           description: OK
           content:
@@ -446,6 +456,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "201":
           description: OK
           content:
@@ -459,6 +471,31 @@ paths:
         "422":
           $ref: "#/components/responses/Unprocessable"
   /api/v1/admin/schedules:
+    get:
+      tags: [admin]
+      summary: 医師の現在の診療スケジュール
+      operationId: getSchedules
+      x-required-roles: [clinic_admin]
+      parameters:
+        - name: doctor_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedules"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
     put:
       tags: [admin]
       summary: 診療時間・枠長・定員の設定と枠生成
@@ -475,6 +512,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "200":
           description: OK
         "401":
@@ -484,6 +523,24 @@ paths:
         "422":
           $ref: "#/components/responses/Unprocessable"
   /api/v1/admin/settings:
+    get:
+      tags: [admin]
+      summary: 現在の設定（受付期間・キャンセル期限・診療科ごとの設定）
+      operationId: getSettings
+      x-required-roles: [clinic_admin]
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     put:
       tags: [admin]
       summary: 受付期間・キャンセル期限・標準診察時間
@@ -500,6 +557,8 @@ paths:
           $ref: "#/components/responses/InternalError"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "200":
           description: OK
           content:
@@ -512,6 +571,217 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/Unprocessable"
+  /api/v1/staff/appointments:
+    get:
+      tags: [staff]
+      summary: "来院受付用の指定日の予約一覧（氏名を含む）"
+      operationId: listStaffAppointments
+      description: "個人情報を含むため監査ログに記録される。date 省略時は今日（JST）"
+      x-required-roles: [staff, clinic_admin]
+      parameters:
+        - name: department_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffAppointment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: ユーザー登録
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: ログイン（アクセストークンを返し、リフレッシュトークンを Cookie に設定）
+      operationId: login
+      description: "同一アカウントの連続 5 回の失敗で 15 分ロック（429 + Retry-After）"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "200":
+          description: OK
+          headers:
+            Set-Cookie:
+              description: refresh_token（HttpOnly; SameSite=Strict; Path=/api/v1/auth）
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: アクセストークンの更新（リフレッシュトークンをローテーション）
+      operationId: refreshToken
+      security: []
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: false
+          description: HttpOnly Cookie（ログイン/更新時に Set-Cookie で発行される）
+          schema: { type: string }
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "200":
+          description: OK
+          headers:
+            Set-Cookie:
+              description: refresh_token（HttpOnly; SameSite=Strict; Path=/api/v1/auth）
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: ログアウト（リフレッシュトークンを失効し Cookie を削除）
+      operationId: logout
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: false
+          description: HttpOnly Cookie（ログイン/更新時に Set-Cookie で発行される）
+          schema: { type: string }
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/password-reset/request:
+    post:
+      tags: [auth]
+      summary: パスワードリセットの申請（登録の有無にかかわらず同一応答）
+      operationId: requestPasswordReset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /api/v1/auth/password-reset/confirm:
+    post:
+      tags: [auth]
+      summary: パスワードリセットの確定（全セッションを失効）
+      operationId: confirmPasswordReset
+      description: "期限切れ・使用済みトークンは 400"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetConfirmRequest"
+      responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -527,6 +797,9 @@ components:
   responses:
     InternalError:
       description: サーバー内部エラー（詳細は応答に含めない。request_id で調査する）
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    PayloadTooLarge:
+      description: リクエストボディが大きすぎる（上限 1MB）
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     BadRequest:
       description: 不正なリクエスト
@@ -552,6 +825,88 @@ components:
         Retry-After: { schema: { type: integer }, description: 再試行までの秒数 }
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
   schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, minLength: 12, maxLength: 72, description: 12 文字以上（bcrypt の上限 72 bytes 以内） }
+        name: { type: string, minLength: 1, maxLength: 100 }
+    RegisterResponse:
+      type: object
+      required: [user_id, email, name, created_at]
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, maxLength: 128 }
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string, description: JWT（HS256、15 分）。メモリにのみ保持する }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer, example: 900 }
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, new_password]
+      properties:
+        token: { type: string, maxLength: 128 }
+        new_password: { type: string, minLength: 12, maxLength: 72 }
+    StaffAppointment:
+      type: object
+      required: [id, appointment_no, slot_start, doctor, patient_name, visit_type, status, checked_in]
+      properties:
+        id: { type: string, format: uuid, description: 来院受付（check-in）にはこの予約 ID を使う }
+        appointment_no: { type: string }
+        slot_start: { type: string, format: date-time }
+        doctor: { type: string }
+        patient_name: { type: string }
+        visit_type: { type: string, enum: [first, revisit] }
+        status: { type: string, enum: [booked, completed] }
+        checked_in: { type: boolean }
+    DepartmentSettings:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        standard_consult_minutes: { type: integer, minimum: 1, nullable: true }
+        walkin_cutoff: { type: string, example: "11:30", nullable: true }
+        walkin_capacity: { type: integer, minimum: 1, nullable: true }
+    ScheduleItem:
+      type: object
+      required: [weekday, start_time, end_time, slot_minutes, capacity]
+      properties:
+        weekday: { type: integer, minimum: 0, maximum: 6, description: 0=日曜 }
+        start_time: { type: string, example: "09:00" }
+        end_time: { type: string, example: "12:00" }
+        slot_minutes: { type: integer, minimum: 1 }
+        capacity: { type: integer, minimum: 1 }
+    Schedules:
+      type: object
+      required: [doctor_id, schedules]
+      properties:
+        doctor_id: { type: integer, format: int64 }
+        schedules:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleItem" }
     Error:
       type: object
       required: [error]
@@ -721,15 +1076,7 @@ components:
         doctor_id: { type: integer, format: int64 }
         schedules:
           type: array
-          items:
-            type: object
-            required: [weekday, start_time, end_time, slot_minutes, capacity]
-            properties:
-              weekday: { type: integer, minimum: 0, maximum: 6, description: 0=日曜 }
-              start_time: { type: string, example: "09:00" }
-              end_time: { type: string, example: "12:00" }
-              slot_minutes: { type: integer, minimum: 1 }
-              capacity: { type: integer, minimum: 1 }
+          items: { $ref: "#/components/schemas/ScheduleItem" }
     SettingsRequest:
       type: object
       properties:
@@ -751,3 +1098,7 @@ components:
       properties:
         cancel_deadline_minutes: { type: integer }
         booking_window_days: { type: integer }
+        departments:
+          type: array
+          description: GET で返す。PUT の応答には含まれない
+          items: { $ref: "#/components/schemas/DepartmentSettings" }

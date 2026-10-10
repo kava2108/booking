@@ -212,6 +212,39 @@ func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
 	return items, nil
 }
 
+const listDoctorSchedules = `-- name: ListDoctorSchedules :many
+SELECT id, doctor_id, weekday, start_time, end_time, slot_minutes, capacity FROM doctor_schedules WHERE doctor_id = $1 ORDER BY weekday, start_time
+`
+
+// 管理者画面の現在のスケジュール表示用（曜日 → 開始時刻の順）。
+func (q *Queries) ListDoctorSchedules(ctx context.Context, doctorID int64) ([]DoctorSchedule, error) {
+	rows, err := q.db.Query(ctx, listDoctorSchedules, doctorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DoctorSchedule{}
+	for rows.Next() {
+		var i DoctorSchedule
+		if err := rows.Scan(
+			&i.ID,
+			&i.DoctorID,
+			&i.Weekday,
+			&i.StartTime,
+			&i.EndTime,
+			&i.SlotMinutes,
+			&i.Capacity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDoctors = `-- name: ListDoctors :many
 SELECT id, department_id, name, active, created_at FROM doctors WHERE department_id = $1 AND active ORDER BY id
 `

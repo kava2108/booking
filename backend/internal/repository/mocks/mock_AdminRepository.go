@@ -499,6 +499,65 @@ func (_c *MockAdminRepository_ListDepartments_Call) RunAndReturn(run func(contex
 	return _c
 }
 
+// ListDoctorSchedules provides a mock function with given fields: ctx, doctorID
+func (_m *MockAdminRepository) ListDoctorSchedules(ctx context.Context, doctorID int64) ([]db.DoctorSchedule, error) {
+	ret := _m.Called(ctx, doctorID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListDoctorSchedules")
+	}
+
+	var r0 []db.DoctorSchedule
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) ([]db.DoctorSchedule, error)); ok {
+		return rf(ctx, doctorID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) []db.DoctorSchedule); ok {
+		r0 = rf(ctx, doctorID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]db.DoctorSchedule)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, doctorID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockAdminRepository_ListDoctorSchedules_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListDoctorSchedules'
+type MockAdminRepository_ListDoctorSchedules_Call struct {
+	*mock.Call
+}
+
+// ListDoctorSchedules is a helper method to define mock.On call
+//   - ctx context.Context
+//   - doctorID int64
+func (_e *MockAdminRepository_Expecter) ListDoctorSchedules(ctx interface{}, doctorID interface{}) *MockAdminRepository_ListDoctorSchedules_Call {
+	return &MockAdminRepository_ListDoctorSchedules_Call{Call: _e.mock.On("ListDoctorSchedules", ctx, doctorID)}
+}
+
+func (_c *MockAdminRepository_ListDoctorSchedules_Call) Run(run func(ctx context.Context, doctorID int64)) *MockAdminRepository_ListDoctorSchedules_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *MockAdminRepository_ListDoctorSchedules_Call) Return(_a0 []db.DoctorSchedule, _a1 error) *MockAdminRepository_ListDoctorSchedules_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockAdminRepository_ListDoctorSchedules_Call) RunAndReturn(run func(context.Context, int64) ([]db.DoctorSchedule, error)) *MockAdminRepository_ListDoctorSchedules_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListDoctors provides a mock function with given fields: ctx, departmentID
 func (_m *MockAdminRepository) ListDoctors(ctx context.Context, departmentID int64) ([]db.Doctor, error) {
 	ret := _m.Called(ctx, departmentID)
