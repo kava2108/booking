@@ -23,11 +23,13 @@ export async function tokenViaApi(request: APIRequestContext, email: string): Pr
   return ((await res.json()) as { access_token: string }).access_token;
 }
 
-export async function loginViaUi(page: Page, email: string, password = PASSWORD): Promise<void> {
+/** `expectSuccess: false` は、ログインに失敗する場合用（画面遷移を待たない）。 */
+export async function loginViaUi(page: Page, email: string, password = PASSWORD, expectSuccess = true): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('メールアドレス').fill(email);
   await page.getByLabel('パスワード', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'ログイン' }).click();
+  if (!expectSuccess) return;
   // ログイン完了（画面遷移）を待つ。待たずに次の goto をすると、ログイン要求が中断される
   await page.waitForURL((url) => url.pathname !== '/login');
 }

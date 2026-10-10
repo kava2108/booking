@@ -81,7 +81,7 @@ test.describe('患者', () => {
     const p = newPatient('wrongpw');
     await registerViaApi(request, p);
 
-    await loginViaUi(page, p.email, 'Wrong-Password-999!');
+    await loginViaUi(page, p.email, 'Wrong-Password-999!', false);
 
     await expect(page.getByRole('alert')).toContainText('メールアドレスまたはパスワードが正しくありません');
     await expect(page.getByRole('heading', { level: 1, name: 'ログイン' })).toBeVisible();
