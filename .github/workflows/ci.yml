@@ -1,0 +1,86 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  migrations:
+    # IMP 1-user-auth-db-migration: up → down → up と制約の検証
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: booking_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify migrations
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/booking_test
+        run: |
+          backend/db/tests/migrations_test.sh
+          backend/db/tests/clinic_migrations_test.sh
+
+  go:
+    # IMP 2-user-auth-sqlc / 3-user-auth-go-infra: ビルド・テスト・sqlc 生成物の差分チェック
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: booking_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - name: sqlc generate (差分が無いこと)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src sqlc/sqlc:1.27.0 generate
+          git diff --exit-code -- internal/repository/db
+      - name: mockery (差分が無いこと)
+        run: |
+          go run github.com/vektra/mockery/v2@v2.53.5
+          git diff --exit-code -- internal/repository/mocks
+      - run: go vet ./...
+      - name: Test
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/booking_test
+        run: go test -race -cover ./...
+
+  frontend-api-types:
+    # IMP 6-clinic-reservation-rbac-audit-openapi: OpenAPI から生成した型が最新であること
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run gen:api
+      - name: 生成物に差分が無いこと
+        run: git diff --exit-code -- src/api/schema.d.ts
+      - run: npm run typecheck
