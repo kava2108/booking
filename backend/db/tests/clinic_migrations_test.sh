@@ -7,11 +7,11 @@ CLINIC_TABLES="'clinic_settings','departments','doctors','doctor_schedules','slo
 ctables() { sql "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ($CLINIC_TABLES)"; }
 
 echo "# up/down ペア"
-n=0; for u in "$DIR"/0000{04,05,06,07,08}_*.up.sql; do [ -f "$u" ] || continue; n=$((n+1)); [ -f "${u%.up.sql}.down.sql" ] && ok "down あり: $(basename "$u")" || ng "down なし: $(basename "$u")"; done
-[ "$n" -eq 5 ] && ok "000004〜000008 が揃っている" || ng "000004〜000008 のファイル数: $n"
+n=0; for u in "$DIR"/0000{04,05,06,07,08,09}_*.up.sql; do [ -f "$u" ] || continue; n=$((n+1)); [ -f "${u%.up.sql}.down.sql" ] && ok "down あり: $(basename "$u")" || ng "down なし: $(basename "$u")"; done
+[ "$n" -eq 6 ] && ok "000004〜000009 が揃っている" || ng "000004〜000009 のファイル数: $n"
 
 reset
-echo "# 000001〜000008 連続 up"
+echo "# 000001〜000009 連続 up"
 up && ok "up 成功" || ng "up 失敗"
 [ "$(ctables)" = "10" ] && ok "clinic テーブル 10 本" || ng "clinic テーブル数: $(ctables)"
 
@@ -77,6 +77,14 @@ expect_ok   "全体休診 (doctor_id NULL)" "INSERT INTO closures(doctor_id,peri
 [ "$(sql "SELECT count(*) FROM closures WHERE period @> '2026-10-12 10:00+09'::timestamptz")" = "1" ] && ok "期間検索" || ng "期間検索"
 expect_ok   "通知登録" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','appointment_confirmed','{\"appointment_no\":\"A-3\"}')"
 [ "$(sql "SELECT status||attempts FROM notifications LIMIT 1")" = "pending0" ] && ok "通知 既定 pending/0" || ng "通知 既定値"
+echo "# 通知の重複登録防止 (IMP 14)"
+expect_ok   "リマインド登録" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','appointment_reminder','{\"appointment_id\":\"A1\"}')"
+expect_fail "同じ予約のリマインドは二重登録できない" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','appointment_reminder','{\"appointment_id\":\"A1\"}')" "duplicate key"
+expect_ok   "別の予約のリマインドは可" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','appointment_reminder','{\"appointment_id\":\"A2\"}')"
+expect_ok   "同じ予約でも別種別の通知は可" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','appointment_confirmed','{\"appointment_id\":\"A1\"}')"
+expect_ok   "順番接近通知を登録" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','queue_near','{\"queue_entry_id\":\"Q1\"}')"
+expect_fail "同じ待機列項目の順番接近通知は二重登録できない" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','queue_near','{\"queue_entry_id\":\"Q1\"}')" "duplicate key"
+expect_ok   "確認通知は同じ予約で複数可（変更・取消の通知が複数あり得る）" "INSERT INTO notifications(user_id,kind,payload) VALUES ('$P2','appointment_confirmed','{\"appointment_id\":\"A1\"}')"
 expect_fail "通知 status 不正" "UPDATE notifications SET status='x'" "check constraint"
 grep -q "(status, send_after)" <<<"$(idxdef notifications)" && ok "notifications(status,send_after)" || ng "通知用インデックスなし"
 expect_ok   "監査ログ登録" "INSERT INTO audit_logs(actor_id,action,target) VALUES ('$P2','view_symptom_note','appointment:A-3')"

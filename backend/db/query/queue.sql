@@ -89,3 +89,33 @@ ORDER BY q.sort_time, q.ticket_no;
 -- 患者本人の順番参照。patient_id で絞る（IDOR 対策）。
 SELECT * FROM queue_entries
 WHERE appointment_id = sqlc.arg(appointment_id) AND patient_id = sqlc.arg(patient_id);
+
+-- name: CountWalkInsForDate :one
+-- 当日受付の定員判定用（キャンセル済みと予約由来は数えない）。
+SELECT count(*) FROM queue_entries
+WHERE department_id = sqlc.arg(department_id) AND service_date = sqlc.arg(service_date)
+  AND source = 'walk_in' AND status <> 'canceled';
+
+-- name: CountActiveQueueEntriesForPatient :one
+-- 同じ患者が同じ診療科の列に重複して並ばないための判定。
+SELECT count(*) FROM queue_entries
+WHERE department_id = sqlc.arg(department_id) AND service_date = sqlc.arg(service_date)
+  AND patient_id = sqlc.arg(patient_id) AND status IN ('waiting', 'called', 'in_consultation');
+
+-- name: ListQueueEntriesNeedingNearNotice :many
+-- 待機中で、前にいる人数が max_ahead 以下になった患者（アカウントあり）のうち、通知未登録のもの。
+SELECT q.id, q.patient_id, q.ticket_no, d.name AS department_name,
+       (SELECT count(*) FROM queue_entries p
+        WHERE p.department_id = q.department_id AND p.service_date = q.service_date
+          AND p.status IN ('waiting', 'called', 'in_consultation') AND p.sort_time < q.sort_time)::bigint AS ahead
+FROM queue_entries q
+JOIN departments d ON d.id = q.department_id
+WHERE q.service_date = sqlc.arg(service_date) AND q.status = 'waiting' AND q.patient_id IS NOT NULL
+  AND (SELECT count(*) FROM queue_entries p
+       WHERE p.department_id = q.department_id AND p.service_date = q.service_date
+         AND p.status IN ('waiting', 'called', 'in_consultation') AND p.sort_time < q.sort_time) <= sqlc.arg(max_ahead)::bigint
+  AND NOT EXISTS (
+    SELECT 1 FROM notifications n
+    WHERE n.kind = 'queue_near' AND n.payload ->> 'queue_entry_id' = q.id::text
+  )
+ORDER BY q.sort_time;

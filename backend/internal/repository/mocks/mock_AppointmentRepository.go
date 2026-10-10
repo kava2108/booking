@@ -81,6 +81,63 @@ func (_c *MockAppointmentRepository_CancelAppointment_Call) RunAndReturn(run fun
 	return _c
 }
 
+// CompleteAppointment provides a mock function with given fields: ctx, id
+func (_m *MockAppointmentRepository) CompleteAppointment(ctx context.Context, id uuid.UUID) (int64, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CompleteAppointment")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (int64, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) int64); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockAppointmentRepository_CompleteAppointment_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CompleteAppointment'
+type MockAppointmentRepository_CompleteAppointment_Call struct {
+	*mock.Call
+}
+
+// CompleteAppointment is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *MockAppointmentRepository_Expecter) CompleteAppointment(ctx interface{}, id interface{}) *MockAppointmentRepository_CompleteAppointment_Call {
+	return &MockAppointmentRepository_CompleteAppointment_Call{Call: _e.mock.On("CompleteAppointment", ctx, id)}
+}
+
+func (_c *MockAppointmentRepository_CompleteAppointment_Call) Run(run func(ctx context.Context, id uuid.UUID)) *MockAppointmentRepository_CompleteAppointment_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *MockAppointmentRepository_CompleteAppointment_Call) Return(_a0 int64, _a1 error) *MockAppointmentRepository_CompleteAppointment_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockAppointmentRepository_CompleteAppointment_Call) RunAndReturn(run func(context.Context, uuid.UUID) (int64, error)) *MockAppointmentRepository_CompleteAppointment_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CountPatientBookingsAt provides a mock function with given fields: ctx, arg
 func (_m *MockAppointmentRepository) CountPatientBookingsAt(ctx context.Context, arg db.CountPatientBookingsAtParams) (int64, error) {
 	ret := _m.Called(ctx, arg)
@@ -252,6 +309,63 @@ func (_c *MockAppointmentRepository_GetAppointment_Call) RunAndReturn(run func(c
 	return _c
 }
 
+// GetAppointmentWithSlot provides a mock function with given fields: ctx, id
+func (_m *MockAppointmentRepository) GetAppointmentWithSlot(ctx context.Context, id uuid.UUID) (db.GetAppointmentWithSlotRow, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAppointmentWithSlot")
+	}
+
+	var r0 db.GetAppointmentWithSlotRow
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (db.GetAppointmentWithSlotRow, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) db.GetAppointmentWithSlotRow); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Get(0).(db.GetAppointmentWithSlotRow)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockAppointmentRepository_GetAppointmentWithSlot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAppointmentWithSlot'
+type MockAppointmentRepository_GetAppointmentWithSlot_Call struct {
+	*mock.Call
+}
+
+// GetAppointmentWithSlot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *MockAppointmentRepository_Expecter) GetAppointmentWithSlot(ctx interface{}, id interface{}) *MockAppointmentRepository_GetAppointmentWithSlot_Call {
+	return &MockAppointmentRepository_GetAppointmentWithSlot_Call{Call: _e.mock.On("GetAppointmentWithSlot", ctx, id)}
+}
+
+func (_c *MockAppointmentRepository_GetAppointmentWithSlot_Call) Run(run func(ctx context.Context, id uuid.UUID)) *MockAppointmentRepository_GetAppointmentWithSlot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *MockAppointmentRepository_GetAppointmentWithSlot_Call) Return(_a0 db.GetAppointmentWithSlotRow, _a1 error) *MockAppointmentRepository_GetAppointmentWithSlot_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockAppointmentRepository_GetAppointmentWithSlot_Call) RunAndReturn(run func(context.Context, uuid.UUID) (db.GetAppointmentWithSlotRow, error)) *MockAppointmentRepository_GetAppointmentWithSlot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListAppointmentsByPatient provides a mock function with given fields: ctx, patientID
 func (_m *MockAppointmentRepository) ListAppointmentsByPatient(ctx context.Context, patientID uuid.UUID) ([]db.ListAppointmentsByPatientRow, error) {
 	ret := _m.Called(ctx, patientID)
@@ -307,6 +421,65 @@ func (_c *MockAppointmentRepository_ListAppointmentsByPatient_Call) Return(_a0 [
 }
 
 func (_c *MockAppointmentRepository_ListAppointmentsByPatient_Call) RunAndReturn(run func(context.Context, uuid.UUID) ([]db.ListAppointmentsByPatientRow, error)) *MockAppointmentRepository_ListAppointmentsByPatient_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListAppointmentsNeedingReminder provides a mock function with given fields: ctx, arg
+func (_m *MockAppointmentRepository) ListAppointmentsNeedingReminder(ctx context.Context, arg db.ListAppointmentsNeedingReminderParams) ([]db.ListAppointmentsNeedingReminderRow, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListAppointmentsNeedingReminder")
+	}
+
+	var r0 []db.ListAppointmentsNeedingReminderRow
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.ListAppointmentsNeedingReminderParams) ([]db.ListAppointmentsNeedingReminderRow, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.ListAppointmentsNeedingReminderParams) []db.ListAppointmentsNeedingReminderRow); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]db.ListAppointmentsNeedingReminderRow)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.ListAppointmentsNeedingReminderParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockAppointmentRepository_ListAppointmentsNeedingReminder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListAppointmentsNeedingReminder'
+type MockAppointmentRepository_ListAppointmentsNeedingReminder_Call struct {
+	*mock.Call
+}
+
+// ListAppointmentsNeedingReminder is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.ListAppointmentsNeedingReminderParams
+func (_e *MockAppointmentRepository_Expecter) ListAppointmentsNeedingReminder(ctx interface{}, arg interface{}) *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call {
+	return &MockAppointmentRepository_ListAppointmentsNeedingReminder_Call{Call: _e.mock.On("ListAppointmentsNeedingReminder", ctx, arg)}
+}
+
+func (_c *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call) Run(run func(ctx context.Context, arg db.ListAppointmentsNeedingReminderParams)) *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.ListAppointmentsNeedingReminderParams))
+	})
+	return _c
+}
+
+func (_c *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call) Return(_a0 []db.ListAppointmentsNeedingReminderRow, _a1 error) *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call) RunAndReturn(run func(context.Context, db.ListAppointmentsNeedingReminderParams) ([]db.ListAppointmentsNeedingReminderRow, error)) *MockAppointmentRepository_ListAppointmentsNeedingReminder_Call {
 	_c.Call.Return(run)
 	return _c
 }

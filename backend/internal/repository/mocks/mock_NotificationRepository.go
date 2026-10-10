@@ -140,6 +140,63 @@ func (_c *MockNotificationRepository_EnqueueNotification_Call) RunAndReturn(run 
 	return _c
 }
 
+// EnqueueNotificationOnce provides a mock function with given fields: ctx, arg
+func (_m *MockNotificationRepository) EnqueueNotificationOnce(ctx context.Context, arg db.EnqueueNotificationOnceParams) (int64, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnqueueNotificationOnce")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.EnqueueNotificationOnceParams) (int64, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.EnqueueNotificationOnceParams) int64); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.EnqueueNotificationOnceParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockNotificationRepository_EnqueueNotificationOnce_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnqueueNotificationOnce'
+type MockNotificationRepository_EnqueueNotificationOnce_Call struct {
+	*mock.Call
+}
+
+// EnqueueNotificationOnce is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.EnqueueNotificationOnceParams
+func (_e *MockNotificationRepository_Expecter) EnqueueNotificationOnce(ctx interface{}, arg interface{}) *MockNotificationRepository_EnqueueNotificationOnce_Call {
+	return &MockNotificationRepository_EnqueueNotificationOnce_Call{Call: _e.mock.On("EnqueueNotificationOnce", ctx, arg)}
+}
+
+func (_c *MockNotificationRepository_EnqueueNotificationOnce_Call) Run(run func(ctx context.Context, arg db.EnqueueNotificationOnceParams)) *MockNotificationRepository_EnqueueNotificationOnce_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.EnqueueNotificationOnceParams))
+	})
+	return _c
+}
+
+func (_c *MockNotificationRepository_EnqueueNotificationOnce_Call) Return(_a0 int64, _a1 error) *MockNotificationRepository_EnqueueNotificationOnce_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockNotificationRepository_EnqueueNotificationOnce_Call) RunAndReturn(run func(context.Context, db.EnqueueNotificationOnceParams) (int64, error)) *MockNotificationRepository_EnqueueNotificationOnce_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MarkNotificationFailed provides a mock function with given fields: ctx, id
 func (_m *MockNotificationRepository) MarkNotificationFailed(ctx context.Context, id uuid.UUID) error {
 	ret := _m.Called(ctx, id)
@@ -230,6 +287,53 @@ func (_c *MockNotificationRepository_MarkNotificationSent_Call) Return(_a0 error
 }
 
 func (_c *MockNotificationRepository_MarkNotificationSent_Call) RunAndReturn(run func(context.Context, uuid.UUID) error) *MockNotificationRepository_MarkNotificationSent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RescheduleNotification provides a mock function with given fields: ctx, arg
+func (_m *MockNotificationRepository) RescheduleNotification(ctx context.Context, arg db.RescheduleNotificationParams) error {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RescheduleNotification")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.RescheduleNotificationParams) error); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNotificationRepository_RescheduleNotification_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RescheduleNotification'
+type MockNotificationRepository_RescheduleNotification_Call struct {
+	*mock.Call
+}
+
+// RescheduleNotification is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.RescheduleNotificationParams
+func (_e *MockNotificationRepository_Expecter) RescheduleNotification(ctx interface{}, arg interface{}) *MockNotificationRepository_RescheduleNotification_Call {
+	return &MockNotificationRepository_RescheduleNotification_Call{Call: _e.mock.On("RescheduleNotification", ctx, arg)}
+}
+
+func (_c *MockNotificationRepository_RescheduleNotification_Call) Run(run func(ctx context.Context, arg db.RescheduleNotificationParams)) *MockNotificationRepository_RescheduleNotification_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.RescheduleNotificationParams))
+	})
+	return _c
+}
+
+func (_c *MockNotificationRepository_RescheduleNotification_Call) Return(_a0 error) *MockNotificationRepository_RescheduleNotification_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNotificationRepository_RescheduleNotification_Call) RunAndReturn(run func(context.Context, db.RescheduleNotificationParams) error) *MockNotificationRepository_RescheduleNotification_Call {
 	_c.Call.Return(run)
 	return _c
 }

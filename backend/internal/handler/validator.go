@@ -41,7 +41,7 @@ func (val *Validator) Validate(i any) error {
 	}
 	out := &ValidationError{}
 	for _, fe := range verrs {
-		out.Fields = append(out.Fields, apierror.Field{Field: fe.Field(), Message: message(fe)})
+		out.Fields = append(out.Fields, apierror.Field{Field: fieldPath(fe), Message: message(fe)})
 	}
 	return out
 }
@@ -59,4 +59,13 @@ func message(fe validator.FieldError) string {
 	default:
 		return "is invalid"
 	}
+}
+
+// fieldPath は "structName.schedules[0].weekday" から先頭の構造体名を除いた JSON 上のパスを返す。
+func fieldPath(fe validator.FieldError) string {
+	ns := fe.Namespace()
+	if i := strings.Index(ns, "."); i >= 0 {
+		return ns[i+1:]
+	}
+	return fe.Field()
 }

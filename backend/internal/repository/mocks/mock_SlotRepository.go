@@ -187,6 +187,63 @@ func (_c *MockSlotRepository_GetSlot_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// GetSlotDetail provides a mock function with given fields: ctx, id
+func (_m *MockSlotRepository) GetSlotDetail(ctx context.Context, id uuid.UUID) (db.GetSlotDetailRow, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSlotDetail")
+	}
+
+	var r0 db.GetSlotDetailRow
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (db.GetSlotDetailRow, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) db.GetSlotDetailRow); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Get(0).(db.GetSlotDetailRow)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockSlotRepository_GetSlotDetail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSlotDetail'
+type MockSlotRepository_GetSlotDetail_Call struct {
+	*mock.Call
+}
+
+// GetSlotDetail is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *MockSlotRepository_Expecter) GetSlotDetail(ctx interface{}, id interface{}) *MockSlotRepository_GetSlotDetail_Call {
+	return &MockSlotRepository_GetSlotDetail_Call{Call: _e.mock.On("GetSlotDetail", ctx, id)}
+}
+
+func (_c *MockSlotRepository_GetSlotDetail_Call) Run(run func(ctx context.Context, id uuid.UUID)) *MockSlotRepository_GetSlotDetail_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *MockSlotRepository_GetSlotDetail_Call) Return(_a0 db.GetSlotDetailRow, _a1 error) *MockSlotRepository_GetSlotDetail_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockSlotRepository_GetSlotDetail_Call) RunAndReturn(run func(context.Context, uuid.UUID) (db.GetSlotDetailRow, error)) *MockSlotRepository_GetSlotDetail_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListSlots provides a mock function with given fields: ctx, arg
 func (_m *MockSlotRepository) ListSlots(ctx context.Context, arg db.ListSlotsParams) ([]db.Slot, error) {
 	ret := _m.Called(ctx, arg)

@@ -25,6 +25,14 @@ type Deps struct {
 	Logger zerolog.Logger
 	Auth   service.AuthService
 	Tokens *auth.TokenManager
+
+	// 以下が nil のときは対応するルートを登録しない。
+	Slots service.SlotService  // 公開カタログ（診療科・医師・空き枠）
+	Admin service.AdminService // 管理者向け設定（Tokens が必要）
+
+	Appointments service.AppointmentService // 患者の予約（Tokens が必要）
+	Queue        service.QueueService       // 待機列・スタッフ操作・当日受付（Tokens と Audit が必要）
+	Audit        middleware.AuditRecorder   // 個人情報参照の監査ログ書き込み先
 }
 
 // New は Echo を組み立てる。
@@ -56,20 +64,40 @@ func New(d Deps) *echo.Echo {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	cfg := d.Config
+	// ログインのアカウント単位の制限(連続失敗でロック)は service の AttemptGuard が担う。
+	// ここの IP 単位の制限は、全アカウントをまたぐ試行に対する緩い天井。
+	loginIP := limiter.Rate{Limit: int64(cfg.RateLimitLoginIPMax), Period: cfg.RateLimitLoginWindow}
+	sensitive := limiter.Rate{Limit: int64(cfg.RateLimitSensitiveMax), Period: cfg.RateLimitLoginWindow}
+	public := limiter.Rate{Limit: int64(cfg.RateLimitPublicMax), Period: cfg.RateLimitPublicWindow}
+	// インスタンスを分けてカウンタを独立させる(refresh の頻度が login の枠を消費しない)
+	rl := handler.RateLimiters{
+		Login:     middleware.RateLimiter(loginIP),
+		Sensitive: middleware.RateLimiter(sensitive),
+		Refresh:   middleware.RateLimiter(public),
+		Public:    middleware.RateLimiter(public),
+	}
+
 	if d.Auth != nil && d.Tokens != nil {
-		cfg := d.Config
-		// ログインのアカウント単位の制限(連続失敗でロック)は service の AttemptGuard が担う。
-		// ここの IP 単位の制限は、全アカウントをまたぐ試行に対する緩い天井。
-		loginIP := limiter.Rate{Limit: int64(cfg.RateLimitLoginIPMax), Period: cfg.RateLimitLoginWindow}
-		sensitive := limiter.Rate{Limit: int64(cfg.RateLimitSensitiveMax), Period: cfg.RateLimitLoginWindow}
-		public := limiter.Rate{Limit: int64(cfg.RateLimitPublicMax), Period: cfg.RateLimitPublicWindow}
-		// インスタンスを分けてカウンタを独立させる(refresh の頻度が login の枠を消費しない)
-		rl := handler.RateLimiters{
-			Login:     middleware.RateLimiter(loginIP),
-			Sensitive: middleware.RateLimiter(sensitive),
-			Refresh:   middleware.RateLimiter(public),
-		}
 		handler.NewAuthHandler(d.Auth, cfg.CookieSecure).Routes(e.Group("/api/v1/auth"), rl, middleware.JWTAuth(d.Tokens))
+	}
+
+	v1 := e.Group("/api/v1")
+	if d.Slots != nil {
+		handler.NewCatalogHandler(d.Slots).Routes(v1, rl.Public)
+	}
+	if d.Appointments != nil && d.Tokens != nil {
+		handler.NewAppointmentHandler(d.Appointments).Routes(v1, middleware.JWTAuth(d.Tokens))
+	}
+	if d.Queue != nil && d.Tokens != nil && d.Audit != nil {
+		jwt := middleware.JWTAuth(d.Tokens)
+		qh := handler.NewQueueHandler(d.Queue)
+		qh.PatientRoutes(v1, jwt)
+		audit := middleware.AuditLog(d.Audit, "view_staff_queue", func(c echo.Context) string { return "department:" + c.QueryParam("department_id") })
+		qh.StaffRoutes(v1.Group("/staff"), jwt, middleware.StaffOnly(), audit)
+	}
+	if d.Admin != nil && d.Tokens != nil {
+		handler.NewAdminHandler(d.Admin).Routes(v1.Group("/admin"), middleware.JWTAuth(d.Tokens), middleware.AdminOnly())
 	}
 	return e
 }

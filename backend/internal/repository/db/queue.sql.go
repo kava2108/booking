@@ -96,6 +96,26 @@ func (q *Queries) CompleteQueueEntry(ctx context.Context, id uuid.UUID) (QueueEn
 	return i, err
 }
 
+const countActiveQueueEntriesForPatient = `-- name: CountActiveQueueEntriesForPatient :one
+SELECT count(*) FROM queue_entries
+WHERE department_id = $1 AND service_date = $2
+  AND patient_id = $3 AND status IN ('waiting', 'called', 'in_consultation')
+`
+
+type CountActiveQueueEntriesForPatientParams struct {
+	DepartmentID int64
+	ServiceDate  pgtype.Date
+	PatientID    pgtype.UUID
+}
+
+// 同じ患者が同じ診療科の列に重複して並ばないための判定。
+func (q *Queries) CountActiveQueueEntriesForPatient(ctx context.Context, arg CountActiveQueueEntriesForPatientParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveQueueEntriesForPatient, arg.DepartmentID, arg.ServiceDate, arg.PatientID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countAhead = `-- name: CountAhead :one
 SELECT count(*) FROM queue_entries
 WHERE department_id = $1 AND service_date = $2
@@ -159,6 +179,25 @@ type CountWaitingParams struct {
 
 func (q *Queries) CountWaiting(ctx context.Context, arg CountWaitingParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countWaiting, arg.DepartmentID, arg.ServiceDate)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWalkInsForDate = `-- name: CountWalkInsForDate :one
+SELECT count(*) FROM queue_entries
+WHERE department_id = $1 AND service_date = $2
+  AND source = 'walk_in' AND status <> 'canceled'
+`
+
+type CountWalkInsForDateParams struct {
+	DepartmentID int64
+	ServiceDate  pgtype.Date
+}
+
+// 当日受付の定員判定用（キャンセル済みと予約由来は数えない）。
+func (q *Queries) CountWalkInsForDate(ctx context.Context, arg CountWalkInsForDateParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWalkInsForDate, arg.DepartmentID, arg.ServiceDate)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -272,6 +311,64 @@ func (q *Queries) GetQueueEntryForPatient(ctx context.Context, arg GetQueueEntry
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listQueueEntriesNeedingNearNotice = `-- name: ListQueueEntriesNeedingNearNotice :many
+SELECT q.id, q.patient_id, q.ticket_no, d.name AS department_name,
+       (SELECT count(*) FROM queue_entries p
+        WHERE p.department_id = q.department_id AND p.service_date = q.service_date
+          AND p.status IN ('waiting', 'called', 'in_consultation') AND p.sort_time < q.sort_time)::bigint AS ahead
+FROM queue_entries q
+JOIN departments d ON d.id = q.department_id
+WHERE q.service_date = $1 AND q.status = 'waiting' AND q.patient_id IS NOT NULL
+  AND (SELECT count(*) FROM queue_entries p
+       WHERE p.department_id = q.department_id AND p.service_date = q.service_date
+         AND p.status IN ('waiting', 'called', 'in_consultation') AND p.sort_time < q.sort_time) <= $2::bigint
+  AND NOT EXISTS (
+    SELECT 1 FROM notifications n
+    WHERE n.kind = 'queue_near' AND n.payload ->> 'queue_entry_id' = q.id::text
+  )
+ORDER BY q.sort_time
+`
+
+type ListQueueEntriesNeedingNearNoticeParams struct {
+	ServiceDate pgtype.Date
+	MaxAhead    int64
+}
+
+type ListQueueEntriesNeedingNearNoticeRow struct {
+	ID             uuid.UUID
+	PatientID      pgtype.UUID
+	TicketNo       int32
+	DepartmentName string
+	Ahead          int64
+}
+
+// 待機中で、前にいる人数が max_ahead 以下になった患者（アカウントあり）のうち、通知未登録のもの。
+func (q *Queries) ListQueueEntriesNeedingNearNotice(ctx context.Context, arg ListQueueEntriesNeedingNearNoticeParams) ([]ListQueueEntriesNeedingNearNoticeRow, error) {
+	rows, err := q.db.Query(ctx, listQueueEntriesNeedingNearNotice, arg.ServiceDate, arg.MaxAhead)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListQueueEntriesNeedingNearNoticeRow{}
+	for rows.Next() {
+		var i ListQueueEntriesNeedingNearNoticeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PatientID,
+			&i.TicketNo,
+			&i.DepartmentName,
+			&i.Ahead,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listStaffQueue = `-- name: ListStaffQueue :many

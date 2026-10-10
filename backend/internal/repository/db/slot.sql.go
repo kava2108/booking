@@ -93,6 +93,45 @@ func (q *Queries) GetSlot(ctx context.Context, id uuid.UUID) (Slot, error) {
 	return i, err
 }
 
+const getSlotDetail = `-- name: GetSlotDetail :one
+SELECT s.id, s.department_id, s.doctor_id, s.start_at, s.capacity, s.booked_count, s.status,
+       d.name AS department_name, dr.name AS doctor_name
+FROM slots s
+JOIN departments d ON d.id = s.department_id
+JOIN doctors dr    ON dr.id = s.doctor_id
+WHERE s.id = $1
+`
+
+type GetSlotDetailRow struct {
+	ID             uuid.UUID
+	DepartmentID   int64
+	DoctorID       int64
+	StartAt        pgtype.Timestamptz
+	Capacity       int32
+	BookedCount    int32
+	Status         string
+	DepartmentName string
+	DoctorName     string
+}
+
+// 診療科名・医師名つき。予約確定の検証と通知 payload の作成に使う。
+func (q *Queries) GetSlotDetail(ctx context.Context, id uuid.UUID) (GetSlotDetailRow, error) {
+	row := q.db.QueryRow(ctx, getSlotDetail, id)
+	var i GetSlotDetailRow
+	err := row.Scan(
+		&i.ID,
+		&i.DepartmentID,
+		&i.DoctorID,
+		&i.StartAt,
+		&i.Capacity,
+		&i.BookedCount,
+		&i.Status,
+		&i.DepartmentName,
+		&i.DoctorName,
+	)
+	return i, err
+}
+
 const listSlots = `-- name: ListSlots :many
 
 SELECT id, department_id, doctor_id, start_at, capacity, booked_count, status, created_at FROM slots

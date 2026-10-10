@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -19,7 +20,11 @@ type Querier interface {
 	ClaimNotifications(ctx context.Context, arg ClaimNotificationsParams) ([]Notification, error)
 	// doctor_id が NULL なら全医師。休診設定で使う（REQ-005-AC-3）。
 	CloseSlots(ctx context.Context, arg CloseSlotsParams) ([]uuid.UUID, error)
+	// 診察完了時に予約を completed にする。更新件数 0 = 既に完了/取消済み。
+	CompleteAppointment(ctx context.Context, id uuid.UUID) (int64, error)
 	CompleteQueueEntry(ctx context.Context, id uuid.UUID) (QueueEntry, error)
+	// 同じ患者が同じ診療科の列に重複して並ばないための判定。
+	CountActiveQueueEntriesForPatient(ctx context.Context, arg CountActiveQueueEntriesForPatientParams) (int64, error)
 	// 自分（sort_time）より前にいる人数。診察中も含め、完了・キャンセルは含めない。
 	CountAhead(ctx context.Context, arg CountAheadParams) (int64, error)
 	// 現在診療時間内（Asia/Tokyo の曜日・時刻）で、休診でないアクティブな医師数。
@@ -27,6 +32,8 @@ type Querier interface {
 	// 同一時刻に有効な予約を持つか（REQ-002-AC-5）
 	CountPatientBookingsAt(ctx context.Context, arg CountPatientBookingsAtParams) (int64, error)
 	CountWaiting(ctx context.Context, arg CountWaitingParams) (int64, error)
+	// 当日受付の定員判定用（キャンセル済みと予約由来は数えない）。
+	CountWalkInsForDate(ctx context.Context, arg CountWalkInsForDateParams) (int64, error)
 	// IMP 5-clinic-reservation-sqlc-repository TASK-0001 / 予約（REQ-002, REQ-003）
 	// 患者向けクエリは patient_id で必ず絞る（IDOR 対策）。
 	CreateAppointment(ctx context.Context, arg CreateAppointmentParams) (Appointment, error)
@@ -46,8 +53,15 @@ type Querier interface {
 	EnqueueEntry(ctx context.Context, arg EnqueueEntryParams) (QueueEntry, error)
 	// IMP 5-clinic-reservation-sqlc-repository TASK-0001 / 通知アウトボックス（REQ-002-AC-3）
 	EnqueueNotification(ctx context.Context, arg EnqueueNotificationParams) (Notification, error)
+	// リマインド/順番接近通知用の冪等な登録。部分ユニークインデックス(000009)により、同じ予約・同じ待機列項目では
+	// 並行しても 1 件だけ登録される。影響行数 0 = 既に登録済み。
+	EnqueueNotificationOnce(ctx context.Context, arg EnqueueNotificationOnceParams) (int64, error)
 	GetAppointment(ctx context.Context, arg GetAppointmentParams) (Appointment, error)
+	// スタッフの来院受付用。患者スコープなしなので StaffOnly のハンドラーからのみ使うこと。
+	GetAppointmentWithSlot(ctx context.Context, id uuid.UUID) (GetAppointmentWithSlotRow, error)
 	GetClinicSettings(ctx context.Context) (ClinicSetting, error)
+	GetDepartment(ctx context.Context, id int64) (Department, error)
+	GetDoctor(ctx context.Context, id int64) (Doctor, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetQueueEntry(ctx context.Context, id uuid.UUID) (QueueEntry, error)
 	// 患者本人の順番参照。patient_id で絞る（IDOR 対策）。
@@ -55,16 +69,24 @@ type Querier interface {
 	// 失効済み・期限切れも返す。有効性の判定は service 層で行う。
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSlot(ctx context.Context, id uuid.UUID) (Slot, error)
+	// 診療科名・医師名つき。予約確定の検証と通知 payload の作成に使う。
+	GetSlotDetail(ctx context.Context, id uuid.UUID) (GetSlotDetailRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	// 対象 ID とアクションのみ記録する。症状メモ等の本文は記録しない。
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
 	ListAppointmentsByPatient(ctx context.Context, patientID uuid.UUID) ([]ListAppointmentsByPatientRow, error)
+	// 診療日が [from_at, to_at) の有効な予約のうち、リマインド未登録のもの。
+	ListAppointmentsNeedingReminder(ctx context.Context, arg ListAppointmentsNeedingReminderParams) ([]ListAppointmentsNeedingReminderRow, error)
 	// 休診の影響を受ける予約者（REQ-005-AC-3）。doctor_id NULL なら全医師。
 	ListBookedAppointmentsForNotice(ctx context.Context, arg ListBookedAppointmentsForNoticeParams) ([]ListBookedAppointmentsForNoticeRow, error)
+	// 終了が基準時刻より後の休診。枠生成時に既存の休診期間を再適用するために使う。
+	ListClosuresFrom(ctx context.Context, after pgtype.Timestamptz) ([]ListClosuresFromRow, error)
 	// IMP 5-clinic-reservation-sqlc-repository TASK-0001 / マスタ・設定・休診・監査（REQ-006, REQ-005-AC-3, REQ-007-AC-3）
 	ListDepartments(ctx context.Context) ([]Department, error)
 	ListDoctors(ctx context.Context, departmentID int64) ([]Doctor, error)
+	// 待機中で、前にいる人数が max_ahead 以下になった患者（アカウントあり）のうち、通知未登録のもの。
+	ListQueueEntriesNeedingNearNotice(ctx context.Context, arg ListQueueEntriesNeedingNearNoticeParams) ([]ListQueueEntriesNeedingNearNoticeRow, error)
 	// 枠生成用。診療科 ID を併せて返す。非アクティブな医師は除く。
 	ListSchedulesByWeekday(ctx context.Context, weekday int16) ([]ListSchedulesByWeekdayRow, error)
 	// IMP 5-clinic-reservation-sqlc-repository TASK-0001 / 枠（REQ-001, REQ-002-AC-2）
@@ -72,6 +94,9 @@ type Querier interface {
 	ListSlots(ctx context.Context, arg ListSlotsParams) ([]Slot, error)
 	// スタッフ専用。氏名・症状メモを含む（公開 API では使わない）。
 	ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) ([]ListStaffQueueRow, error)
+	// 診療科の行をロックする（トランザクション内）。同じ診療科への同時の受付を直列化し、
+	// 当日受付の定員判定と受付番号の採番の競合を防ぐ。
+	LockDepartment(ctx context.Context, id int64) (int64, error)
 	MarkNotificationFailed(ctx context.Context, id uuid.UUID) error
 	MarkNotificationSent(ctx context.Context, id uuid.UUID) error
 	// 影響行数 0 = 既に使用済み（または存在しない）。
@@ -84,6 +109,8 @@ type Querier interface {
 	RecentConsultSeconds(ctx context.Context, arg RecentConsultSecondsParams) ([]float64, error)
 	ReleaseSlot(ctx context.Context, id uuid.UUID) error
 	RescheduleAppointment(ctx context.Context, arg RescheduleAppointmentParams) (Appointment, error)
+	// 送信失敗時のバックオフ。pending のものだけ send_after を後ろ倒しする。
+	RescheduleNotification(ctx context.Context, arg RescheduleNotificationParams) error
 	// 排他確保。単一の条件付き UPDATE で定員超過を防ぐ。0 行（pgx.ErrNoRows）= 満席または休診。
 	ReserveSlot(ctx context.Context, id uuid.UUID) (Slot, error)
 	// パスワード変更時に全セッションを失効させる。

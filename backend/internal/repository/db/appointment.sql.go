@@ -41,6 +41,19 @@ func (q *Queries) CancelAppointment(ctx context.Context, arg CancelAppointmentPa
 	return i, err
 }
 
+const completeAppointment = `-- name: CompleteAppointment :execrows
+UPDATE appointments SET status = 'completed' WHERE id = $1 AND status = 'booked'
+`
+
+// 診察完了時に予約を completed にする。更新件数 0 = 既に完了/取消済み。
+func (q *Queries) CompleteAppointment(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, completeAppointment, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const countPatientBookingsAt = `-- name: CountPatientBookingsAt :one
 SELECT count(*) FROM appointments a
 JOIN slots s ON s.id = a.slot_id
@@ -126,6 +139,39 @@ func (q *Queries) GetAppointment(ctx context.Context, arg GetAppointmentParams) 
 	return i, err
 }
 
+const getAppointmentWithSlot = `-- name: GetAppointmentWithSlot :one
+SELECT a.id, a.appointment_no, a.patient_id, a.status, s.id AS slot_id, s.department_id, s.start_at
+FROM appointments a
+JOIN slots s ON s.id = a.slot_id
+WHERE a.id = $1
+`
+
+type GetAppointmentWithSlotRow struct {
+	ID            uuid.UUID
+	AppointmentNo string
+	PatientID     uuid.UUID
+	Status        string
+	SlotID        uuid.UUID
+	DepartmentID  int64
+	StartAt       pgtype.Timestamptz
+}
+
+// スタッフの来院受付用。患者スコープなしなので StaffOnly のハンドラーからのみ使うこと。
+func (q *Queries) GetAppointmentWithSlot(ctx context.Context, id uuid.UUID) (GetAppointmentWithSlotRow, error) {
+	row := q.db.QueryRow(ctx, getAppointmentWithSlot, id)
+	var i GetAppointmentWithSlotRow
+	err := row.Scan(
+		&i.ID,
+		&i.AppointmentNo,
+		&i.PatientID,
+		&i.Status,
+		&i.SlotID,
+		&i.DepartmentID,
+		&i.StartAt,
+	)
+	return i, err
+}
+
 const listAppointmentsByPatient = `-- name: ListAppointmentsByPatient :many
 SELECT a.id, a.appointment_no, a.visit_type, a.symptom_note, a.status, a.canceled_at,
        s.id AS slot_id, s.start_at,
@@ -168,6 +214,63 @@ func (q *Queries) ListAppointmentsByPatient(ctx context.Context, patientID uuid.
 			&i.Status,
 			&i.CanceledAt,
 			&i.SlotID,
+			&i.StartAt,
+			&i.DepartmentName,
+			&i.DoctorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAppointmentsNeedingReminder = `-- name: ListAppointmentsNeedingReminder :many
+SELECT a.id, a.appointment_no, a.patient_id, s.start_at, d.name AS department_name, dr.name AS doctor_name
+FROM appointments a
+JOIN slots s       ON s.id = a.slot_id
+JOIN departments d ON d.id = s.department_id
+JOIN doctors dr    ON dr.id = s.doctor_id
+WHERE a.status = 'booked'
+  AND s.start_at >= $1 AND s.start_at < $2
+  AND NOT EXISTS (
+    SELECT 1 FROM notifications n
+    WHERE n.kind = 'appointment_reminder' AND n.payload ->> 'appointment_id' = a.id::text
+  )
+ORDER BY s.start_at
+`
+
+type ListAppointmentsNeedingReminderParams struct {
+	FromAt pgtype.Timestamptz
+	ToAt   pgtype.Timestamptz
+}
+
+type ListAppointmentsNeedingReminderRow struct {
+	ID             uuid.UUID
+	AppointmentNo  string
+	PatientID      uuid.UUID
+	StartAt        pgtype.Timestamptz
+	DepartmentName string
+	DoctorName     string
+}
+
+// 診療日が [from_at, to_at) の有効な予約のうち、リマインド未登録のもの。
+func (q *Queries) ListAppointmentsNeedingReminder(ctx context.Context, arg ListAppointmentsNeedingReminderParams) ([]ListAppointmentsNeedingReminderRow, error) {
+	rows, err := q.db.Query(ctx, listAppointmentsNeedingReminder, arg.FromAt, arg.ToAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAppointmentsNeedingReminderRow{}
+	for rows.Next() {
+		var i ListAppointmentsNeedingReminderRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppointmentNo,
+			&i.PatientID,
 			&i.StartAt,
 			&i.DepartmentName,
 			&i.DoctorName,

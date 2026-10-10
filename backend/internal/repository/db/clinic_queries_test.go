@@ -1,7 +1,9 @@
 package db_test
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -604,4 +606,324 @@ func TestInsertAuditLog(t *testing.T) {
 	var n int
 	require.NoError(t, e.pool.QueryRow(e.ctx, `SELECT count(*) FROM audit_logs`).Scan(&n))
 	assert.Equal(t, 1, n)
+}
+
+// ---------- IMP 11-clinic-reservation-slot-api-admin-settings ----------
+
+func TestGetDepartmentAndDoctor(t *testing.T) {
+	e := newClinicEnv(t)
+
+	d, err := e.q.GetDepartment(e.ctx, e.deptID)
+	require.NoError(t, err)
+	assert.Equal(t, "内科", d.Name)
+	_, err = e.q.GetDepartment(e.ctx, e.deptID+99)
+	assert.ErrorIs(t, err, pgx.ErrNoRows)
+
+	doc, err := e.q.GetDoctor(e.ctx, e.doctorID)
+	require.NoError(t, err)
+	assert.Equal(t, e.deptID, doc.DepartmentID)
+	_, err = e.q.GetDoctor(e.ctx, e.doctorID+99)
+	assert.ErrorIs(t, err, pgx.ErrNoRows)
+}
+
+// 枠生成時に、既存の休診期間を再適用するために未来の休診を取得する
+func TestListClosuresFrom(t *testing.T) {
+	e := newClinicEnv(t)
+	doc := pgtype.Int8{Int64: e.doctorID, Valid: true}
+	require.NoError(t, e.q.CreateClosure(e.ctx, db.CreateClosureParams{DoctorID: doc, FromAt: ts(at(9, 0)), ToAt: ts(at(12, 0)), Reason: "学会"}))
+	require.NoError(t, e.q.CreateClosure(e.ctx, db.CreateClosureParams{FromAt: ts(at(0, 0).AddDate(0, 0, 3)), ToAt: ts(at(0, 0).AddDate(0, 0, 4)), Reason: "臨時休診"}))
+	require.NoError(t, e.q.CreateClosure(e.ctx, db.CreateClosureParams{DoctorID: doc, FromAt: ts(at(0, 0).AddDate(0, 0, -5)), ToAt: ts(at(0, 0).AddDate(0, 0, -4)), Reason: "過去"}))
+
+	rows, err := e.q.ListClosuresFrom(e.ctx, ts(at(10, 0)))
+	require.NoError(t, err)
+	require.Len(t, rows, 2, "終了が基準時刻より後のものだけ（過去は除く）")
+
+	byDoctor := map[bool]db.ListClosuresFromRow{}
+	for _, r := range rows {
+		byDoctor[r.DoctorID.Valid] = r
+	}
+	assert.Equal(t, e.doctorID, byDoctor[true].DoctorID.Int64)
+	assert.True(t, byDoctor[true].FromAt.Time.Equal(at(9, 0)))
+	assert.True(t, byDoctor[true].ToAt.Time.Equal(at(12, 0)))
+	assert.False(t, byDoctor[false].DoctorID.Valid, "全体休診は doctor_id が NULL")
+}
+
+// ---------- IMP 12-clinic-reservation-appointment-api ----------
+
+func TestGetSlotDetail(t *testing.T) {
+	e := newClinicEnv(t)
+	s := e.slot(t, at(9, 30), 3)
+
+	d, err := e.q.GetSlotDetail(e.ctx, s.ID)
+	require.NoError(t, err)
+	assert.Equal(t, s.ID, d.ID)
+	assert.Equal(t, "内科", d.DepartmentName)
+	assert.Equal(t, "山田", d.DoctorName)
+	assert.EqualValues(t, 3, d.Capacity)
+	assert.True(t, d.StartAt.Time.Equal(at(9, 30)))
+	assert.Equal(t, "open", d.Status)
+
+	_, err = e.q.GetSlotDetail(e.ctx, uuid.New())
+	assert.ErrorIs(t, err, pgx.ErrNoRows)
+}
+
+// ---------- IMP 13-clinic-reservation-queue-staff-walkin ----------
+
+func TestGetAppointmentWithSlot_StaffLookup(t *testing.T) {
+	e := newClinicEnv(t)
+	s := e.slot(t, at(9, 30), 1)
+	a := e.book(t, e.patient1, s, "A-1")
+
+	row, err := e.q.GetAppointmentWithSlot(e.ctx, a.ID)
+	require.NoError(t, err)
+	assert.Equal(t, a.ID, row.ID)
+	assert.Equal(t, e.patient1.ID, row.PatientID)
+	assert.Equal(t, e.deptID, row.DepartmentID)
+	assert.Equal(t, "booked", row.Status)
+	assert.True(t, row.StartAt.Time.Equal(at(9, 30)))
+
+	_, err = e.q.GetAppointmentWithSlot(e.ctx, uuid.New())
+	assert.ErrorIs(t, err, pgx.ErrNoRows)
+}
+
+func TestCompleteAppointment(t *testing.T) {
+	e := newClinicEnv(t)
+	a := e.book(t, e.patient1, e.slot(t, at(9, 30), 1), "A-1")
+
+	n, err := e.q.CompleteAppointment(e.ctx, a.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n)
+	got, _ := e.q.GetAppointment(e.ctx, db.GetAppointmentParams{ID: a.ID, PatientID: e.patient1.ID})
+	assert.Equal(t, "completed", got.Status)
+
+	n, err = e.q.CompleteAppointment(e.ctx, a.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, n, "完了済みは更新されない")
+
+	canceled := e.book(t, e.patient2, e.slot(t, at(10, 0), 1), "A-2")
+	_, err = e.q.CancelAppointment(e.ctx, db.CancelAppointmentParams{ID: canceled.ID, PatientID: e.patient2.ID})
+	require.NoError(t, err)
+	n, _ = e.q.CompleteAppointment(e.ctx, canceled.ID)
+	assert.EqualValues(t, 0, n, "キャンセル済みを完了にしない")
+}
+
+func TestCountWalkInsForDate(t *testing.T) {
+	e := newClinicEnv(t)
+	a := e.enqueueWalkIn(t, "A", at(9, 0))
+	e.enqueueWalkIn(t, "B", at(9, 5))
+	_, err := e.q.CancelQueueEntry(e.ctx, a.ID)
+	require.NoError(t, err)
+	// 予約由来は数えない
+	s := e.slot(t, at(9, 30), 1)
+	appt := e.book(t, e.patient1, s, "A-1")
+	_, err = e.q.EnqueueEntry(e.ctx, db.EnqueueEntryParams{
+		DepartmentID: e.deptID, AppointmentID: puuid(appt.ID), PatientID: puuid(e.patient1.ID), Source: "reservation",
+		ServiceDate: date(day), TicketNo: 10, SortTime: ts(at(9, 30)), CheckedInAt: ts(at(9, 0)),
+	})
+	require.NoError(t, err)
+
+	n, err := e.q.CountWalkInsForDate(e.ctx, db.CountWalkInsForDateParams{DepartmentID: e.deptID, ServiceDate: date(day)})
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n, "キャンセル済みと予約由来は数えない")
+
+	n, _ = e.q.CountWalkInsForDate(e.ctx, db.CountWalkInsForDateParams{DepartmentID: e.deptID, ServiceDate: date(day.AddDate(0, 0, 1))})
+	assert.EqualValues(t, 0, n)
+}
+
+func TestCountActiveQueueEntriesForPatient(t *testing.T) {
+	e := newClinicEnv(t)
+	q, err := e.q.EnqueueEntry(e.ctx, db.EnqueueEntryParams{
+		DepartmentID: e.deptID, PatientID: puuid(e.patient1.ID), Source: "walk_in",
+		ServiceDate: date(day), TicketNo: 1, SortTime: ts(at(9, 0)), CheckedInAt: ts(at(9, 0)),
+	})
+	require.NoError(t, err)
+	count := func(p db.User) int64 {
+		n, err := e.q.CountActiveQueueEntriesForPatient(e.ctx, db.CountActiveQueueEntriesForPatientParams{DepartmentID: e.deptID, ServiceDate: date(day), PatientID: puuid(p.ID)})
+		require.NoError(t, err)
+		return n
+	}
+	assert.EqualValues(t, 1, count(e.patient1))
+	assert.EqualValues(t, 0, count(e.patient2))
+
+	_, _ = e.q.CallQueueEntry(e.ctx, q.ID)
+	_, _ = e.q.StartQueueEntry(e.ctx, q.ID)
+	assert.EqualValues(t, 1, count(e.patient1), "診察中も列にいる")
+	_, _ = e.q.CompleteQueueEntry(e.ctx, q.ID)
+	assert.EqualValues(t, 0, count(e.patient1), "完了後は列にいない（再度の当日受付が可能）")
+}
+
+// 診療科の行ロック: 同時の受付を直列化し、定員・採番の競合を防ぐ
+func TestLockDepartmentSerializesTransactions(t *testing.T) {
+	e := newClinicEnv(t)
+	tx1, err := e.pool.Begin(e.ctx)
+	require.NoError(t, err)
+	defer tx1.Rollback(e.ctx)
+	_, err = db.New(tx1).LockDepartment(e.ctx, e.deptID)
+	require.NoError(t, err)
+
+	got := make(chan error, 1)
+	go func() {
+		tx2, err := e.pool.Begin(e.ctx)
+		if err != nil {
+			got <- err
+			return
+		}
+		defer tx2.Rollback(e.ctx)
+		ctx, cancel := context.WithTimeout(e.ctx, 300*time.Millisecond)
+		defer cancel()
+		_, err = db.New(tx2).LockDepartment(ctx, e.deptID)
+		got <- err
+	}()
+
+	assert.Error(t, <-got, "tx1 がロック中は tx2 が待たされる（タイムアウト）")
+	require.NoError(t, tx1.Commit(e.ctx))
+
+	_, err = e.q.LockDepartment(e.ctx, e.deptID+99)
+	assert.ErrorIs(t, err, pgx.ErrNoRows)
+}
+
+// ---------- IMP 14-clinic-reservation-notification-outbox ----------
+
+func TestEnqueueNotificationOnce_IsIdempotent(t *testing.T) {
+	e := newClinicEnv(t)
+	p := db.EnqueueNotificationOnceParams{UserID: e.patient1.ID, Kind: "appointment_reminder", Payload: []byte(`{"appointment_id":"A1"}`)}
+
+	n, err := e.q.EnqueueNotificationOnce(e.ctx, p)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n)
+	n, err = e.q.EnqueueNotificationOnce(e.ctx, p)
+	require.NoError(t, err, "重複はエラーではなく 0 件")
+	assert.EqualValues(t, 0, n)
+
+	p.Payload = []byte(`{"appointment_id":"A2"}`)
+	n, _ = e.q.EnqueueNotificationOnce(e.ctx, p)
+	assert.EqualValues(t, 1, n, "別の予約は登録される")
+
+	// 並行しても 1 件だけ
+	q := db.EnqueueNotificationOnceParams{UserID: e.patient1.ID, Kind: "queue_near", Payload: []byte(`{"queue_entry_id":"Q1"}`)}
+	var inserted atomic.Int32
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			n, err := e.q.EnqueueNotificationOnce(e.ctx, q)
+			if assert.NoError(t, err) {
+				inserted.Add(int32(n))
+			}
+		}()
+	}
+	wg.Wait()
+	assert.EqualValues(t, 1, inserted.Load())
+}
+
+func TestRescheduleNotification(t *testing.T) {
+	e := newClinicEnv(t)
+	n, err := e.q.EnqueueNotification(e.ctx, db.EnqueueNotificationParams{UserID: e.patient1.ID, Kind: "k", Payload: []byte(`{}`)})
+	require.NoError(t, err)
+
+	require.NoError(t, e.q.RescheduleNotification(e.ctx, db.RescheduleNotificationParams{ID: n.ID, DelaySeconds: 3600}))
+	var delta float64
+	require.NoError(t, e.pool.QueryRow(e.ctx, `SELECT EXTRACT(EPOCH FROM (send_after - now())) FROM notifications WHERE id=$1`, n.ID).Scan(&delta))
+	assert.InDelta(t, 3600, delta, 5)
+
+	claimed, err := e.q.ClaimNotifications(e.ctx, db.ClaimNotificationsParams{Limit: 10, LeaseSeconds: 60})
+	require.NoError(t, err)
+	assert.Empty(t, claimed, "後ろ倒しにした間は取得されない")
+
+	// 送信済み・失敗済みは対象外（状態を巻き戻さない）
+	require.NoError(t, e.q.MarkNotificationSent(e.ctx, n.ID))
+	require.NoError(t, e.q.RescheduleNotification(e.ctx, db.RescheduleNotificationParams{ID: n.ID, DelaySeconds: 1}))
+	require.NoError(t, e.pool.QueryRow(e.ctx, `SELECT EXTRACT(EPOCH FROM (send_after - now())) FROM notifications WHERE id=$1`, n.ID).Scan(&delta))
+	assert.Greater(t, delta, 3000.0, "sent は更新されない")
+}
+
+func TestListAppointmentsNeedingReminder(t *testing.T) {
+	e := newClinicEnv(t)
+	tomorrow := at(0, 0).AddDate(0, 0, 1)
+	in1 := e.book(t, e.patient1, e.slot(t, tomorrow.Add(9*time.Hour), 2), "A-IN1")
+	e.book(t, e.patient2, e.slot(t, tomorrow.Add(23*time.Hour+59*time.Minute), 2), "A-IN2") // 翌日の最終分
+	e.book(t, e.patient2, e.slot(t, tomorrow.Add(24*time.Hour), 2), "A-OUT-LATER")          // 翌々日 0:00 は範囲外
+	e.book(t, e.patient2, e.slot(t, tomorrow.Add(-time.Minute), 2), "A-OUT-EARLIER")        // 今日 23:59 は範囲外
+	canceled := e.book(t, e.patient1, e.slot(t, tomorrow.Add(10*time.Hour), 2), "A-CANCELED")
+	_, err := e.q.CancelAppointment(e.ctx, db.CancelAppointmentParams{ID: canceled.ID, PatientID: e.patient1.ID})
+	require.NoError(t, err)
+
+	rows, err := e.q.ListAppointmentsNeedingReminder(e.ctx, db.ListAppointmentsNeedingReminderParams{FromAt: ts(tomorrow), ToAt: ts(tomorrow.Add(24 * time.Hour))})
+	require.NoError(t, err)
+
+	var nos []string
+	for _, r := range rows {
+		nos = append(nos, r.AppointmentNo)
+	}
+	assert.ElementsMatch(t, []string{"A-IN1", "A-IN2"}, nos, "翌日の有効な予約のみ（範囲は [from, to)）")
+	assert.Equal(t, "内科", rows[0].DepartmentName)
+	assert.Equal(t, "山田", rows[0].DoctorName)
+
+	// 登録済みの予約は一覧から消える
+	_, err = e.q.EnqueueNotificationOnce(e.ctx, db.EnqueueNotificationOnceParams{
+		UserID: e.patient1.ID, Kind: "appointment_reminder", Payload: []byte(`{"appointment_id":"` + in1.ID.String() + `"}`),
+	})
+	require.NoError(t, err)
+	rows, _ = e.q.ListAppointmentsNeedingReminder(e.ctx, db.ListAppointmentsNeedingReminderParams{FromAt: ts(tomorrow), ToAt: ts(tomorrow.Add(24 * time.Hour))})
+	assert.Len(t, rows, 1)
+	assert.Equal(t, "A-IN2", rows[0].AppointmentNo)
+}
+
+func TestListQueueEntriesNeedingNearNotice(t *testing.T) {
+	e := newClinicEnv(t)
+	// 先頭 4 人はアカウントなしの当日受付、5 番目以降が患者アカウント付き
+	var entries []db.QueueEntry
+	for i := 0; i < 4; i++ {
+		entries = append(entries, e.enqueueWalkIn(t, fmt.Sprintf("先頭%d", i), at(9, i)))
+	}
+	enq := func(p db.User, minute int, ticket int32) db.QueueEntry {
+		q, err := e.q.EnqueueEntry(e.ctx, db.EnqueueEntryParams{
+			DepartmentID: e.deptID, PatientID: puuid(p.ID), Source: "walk_in", ServiceDate: date(day), TicketNo: ticket,
+			SortTime: ts(at(9, minute)), CheckedInAt: ts(at(9, minute)),
+		})
+		require.NoError(t, err)
+		return q
+	}
+	near := enq(e.patient1, 10, 5) // 前に 4 人
+	list := func(maxAhead int64) []db.ListQueueEntriesNeedingNearNoticeRow {
+		rows, err := e.q.ListQueueEntriesNeedingNearNotice(e.ctx, db.ListQueueEntriesNeedingNearNoticeParams{ServiceDate: date(day), MaxAhead: maxAhead})
+		require.NoError(t, err)
+		return rows
+	}
+
+	assert.Empty(t, list(3), "前に 4 人いる間は対象外")
+	rows := list(4)
+	require.Len(t, rows, 1, "前の人数 <= N で対象（境界）")
+	assert.Equal(t, near.ID, rows[0].ID)
+	assert.EqualValues(t, 4, rows[0].Ahead)
+	assert.Equal(t, e.patient1.ID, uuid.UUID(rows[0].PatientID.Bytes))
+	assert.Equal(t, "内科", rows[0].DepartmentName)
+
+	// 前の人が完了すると 3 人になる。アカウントなしの人は通知対象にならない
+	for _, q := range entries[:1] {
+		_, _ = e.q.CallQueueEntry(e.ctx, q.ID)
+		_, _ = e.q.StartQueueEntry(e.ctx, q.ID)
+		_, _ = e.q.CompleteQueueEntry(e.ctx, q.ID)
+	}
+	rows = list(3)
+	require.Len(t, rows, 1)
+	assert.EqualValues(t, 3, rows[0].Ahead)
+
+	// 通知済みは対象外
+	_, err := e.q.EnqueueNotificationOnce(e.ctx, db.EnqueueNotificationOnceParams{
+		UserID: e.patient1.ID, Kind: "queue_near", Payload: []byte(`{"queue_entry_id":"` + near.ID.String() + `"}`),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, list(3))
+
+	// 呼出済み・診察中の人には通知しない（待機中のみ）
+	called := enq(e.patient2, 20, 6)
+	_, _ = e.q.CallQueueEntry(e.ctx, entries[1].ID)
+	_, _ = e.q.StartQueueEntry(e.ctx, entries[1].ID)
+	_, _ = e.q.CompleteQueueEntry(e.ctx, entries[1].ID)
+	_, _ = e.q.CallQueueEntry(e.ctx, called.ID)
+	for _, r := range list(10) {
+		assert.NotEqual(t, called.ID, r.ID, "呼出済みは対象外")
+	}
 }

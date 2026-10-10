@@ -25,3 +25,16 @@ UPDATE notifications SET status = 'sent' WHERE id = $1;
 
 -- name: MarkNotificationFailed :exec
 UPDATE notifications SET status = 'failed' WHERE id = $1;
+
+-- name: EnqueueNotificationOnce :execrows
+-- リマインド/順番接近通知用の冪等な登録。部分ユニークインデックス(000009)により、同じ予約・同じ待機列項目では
+-- 並行しても 1 件だけ登録される。影響行数 0 = 既に登録済み。
+INSERT INTO notifications (user_id, kind, payload)
+VALUES (sqlc.arg(user_id), sqlc.arg(kind), sqlc.arg(payload))
+ON CONFLICT DO NOTHING;
+
+-- name: RescheduleNotification :exec
+-- 送信失敗時のバックオフ。pending のものだけ send_after を後ろ倒しする。
+UPDATE notifications
+SET send_after = now() + make_interval(secs => sqlc.arg(delay_seconds)::float8)
+WHERE id = sqlc.arg(id) AND status = 'pending';

@@ -370,3 +370,16 @@ erDiagram
 | **スタック** | React 18 + TypeScript + TailwindCSS |
 
 > MASTER.md は施設予約向けに生成済み。医療向けでも色・タイポグラフィは流用可能（AA 適合済み）。待ち時間カードなど固有画面は `design-system/pages/wait-time.md` でオーバーライドする想定。
+
+---
+
+## Implementation Notes（P0/P1 実装で確定・追加した事項）
+
+- **API パス**: すべて `/api/v1` 配下（user-auth と統一）。
+- **診療日の基準**: JST 固定オフセット（`domain.JST`）。
+- **受付の直列化**: 来院受付・当日受付は診療科の行ロック（`SELECT … FOR UPDATE`）で採番と定員判定を直列化。
+- **通知の重複防止**: リマインド・順番接近は 000009 の部分ユニークインデックス + `ON CONFLICT DO NOTHING`。
+- **通知送信**: `NotificationSender` interface（初期は SMTP）。SMTP 未設定時はワーカーを起動せず pending のまま保持。
+- **権限**: `/staff/**` は staff と clinic_admin、`/admin/**` は clinic_admin のみ。system_admin はどちらも不可。待機列の参照は監査ログに記録（フェイルクローズ）。
+- **ER 図への追加**: `clinic_settings`（単一行）。
+

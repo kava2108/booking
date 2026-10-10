@@ -85,6 +85,41 @@ func (q *Queries) GetClinicSettings(ctx context.Context) (ClinicSetting, error) 
 	return i, err
 }
 
+const getDepartment = `-- name: GetDepartment :one
+SELECT id, name, standard_consult_minutes, walkin_cutoff, walkin_capacity, created_at FROM departments WHERE id = $1
+`
+
+func (q *Queries) GetDepartment(ctx context.Context, id int64) (Department, error) {
+	row := q.db.QueryRow(ctx, getDepartment, id)
+	var i Department
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.StandardConsultMinutes,
+		&i.WalkinCutoff,
+		&i.WalkinCapacity,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getDoctor = `-- name: GetDoctor :one
+SELECT id, department_id, name, active, created_at FROM doctors WHERE id = $1
+`
+
+func (q *Queries) GetDoctor(ctx context.Context, id int64) (Doctor, error) {
+	row := q.db.QueryRow(ctx, getDoctor, id)
+	var i Doctor
+	err := row.Scan(
+		&i.ID,
+		&i.DepartmentID,
+		&i.Name,
+		&i.Active,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertAuditLog = `-- name: InsertAuditLog :exec
 INSERT INTO audit_logs (actor_id, action, target)
 VALUES ($1, $2, $3)
@@ -100,6 +135,48 @@ type InsertAuditLogParams struct {
 func (q *Queries) InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error {
 	_, err := q.db.Exec(ctx, insertAuditLog, arg.ActorID, arg.Action, arg.Target)
 	return err
+}
+
+const listClosuresFrom = `-- name: ListClosuresFrom :many
+SELECT id, doctor_id, lower(period)::timestamptz AS from_at, upper(period)::timestamptz AS to_at, reason
+FROM closures
+WHERE upper(period) > $1::timestamptz
+ORDER BY lower(period)
+`
+
+type ListClosuresFromRow struct {
+	ID       int64
+	DoctorID pgtype.Int8
+	FromAt   pgtype.Timestamptz
+	ToAt     pgtype.Timestamptz
+	Reason   string
+}
+
+// 終了が基準時刻より後の休診。枠生成時に既存の休診期間を再適用するために使う。
+func (q *Queries) ListClosuresFrom(ctx context.Context, after pgtype.Timestamptz) ([]ListClosuresFromRow, error) {
+	rows, err := q.db.Query(ctx, listClosuresFrom, after)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListClosuresFromRow{}
+	for rows.Next() {
+		var i ListClosuresFromRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DoctorID,
+			&i.FromAt,
+			&i.ToAt,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDepartments = `-- name: ListDepartments :many
@@ -212,6 +289,18 @@ func (q *Queries) ListSchedulesByWeekday(ctx context.Context, weekday int16) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockDepartment = `-- name: LockDepartment :one
+SELECT id FROM departments WHERE id = $1 FOR UPDATE
+`
+
+// 診療科の行をロックする（トランザクション内）。同じ診療科への同時の受付を直列化し、
+// 当日受付の定員判定と受付番号の採番の競合を防ぐ。
+func (q *Queries) LockDepartment(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockDepartment, id)
+	err := row.Scan(&id)
+	return id, err
 }
 
 const updateClinicSettings = `-- name: UpdateClinicSettings :one

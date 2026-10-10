@@ -195,6 +195,63 @@ func (_c *MockQueueRepository_CompleteQueueEntry_Call) RunAndReturn(run func(con
 	return _c
 }
 
+// CountActiveQueueEntriesForPatient provides a mock function with given fields: ctx, arg
+func (_m *MockQueueRepository) CountActiveQueueEntriesForPatient(ctx context.Context, arg db.CountActiveQueueEntriesForPatientParams) (int64, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountActiveQueueEntriesForPatient")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountActiveQueueEntriesForPatientParams) (int64, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountActiveQueueEntriesForPatientParams) int64); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.CountActiveQueueEntriesForPatientParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockQueueRepository_CountActiveQueueEntriesForPatient_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountActiveQueueEntriesForPatient'
+type MockQueueRepository_CountActiveQueueEntriesForPatient_Call struct {
+	*mock.Call
+}
+
+// CountActiveQueueEntriesForPatient is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.CountActiveQueueEntriesForPatientParams
+func (_e *MockQueueRepository_Expecter) CountActiveQueueEntriesForPatient(ctx interface{}, arg interface{}) *MockQueueRepository_CountActiveQueueEntriesForPatient_Call {
+	return &MockQueueRepository_CountActiveQueueEntriesForPatient_Call{Call: _e.mock.On("CountActiveQueueEntriesForPatient", ctx, arg)}
+}
+
+func (_c *MockQueueRepository_CountActiveQueueEntriesForPatient_Call) Run(run func(ctx context.Context, arg db.CountActiveQueueEntriesForPatientParams)) *MockQueueRepository_CountActiveQueueEntriesForPatient_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.CountActiveQueueEntriesForPatientParams))
+	})
+	return _c
+}
+
+func (_c *MockQueueRepository_CountActiveQueueEntriesForPatient_Call) Return(_a0 int64, _a1 error) *MockQueueRepository_CountActiveQueueEntriesForPatient_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockQueueRepository_CountActiveQueueEntriesForPatient_Call) RunAndReturn(run func(context.Context, db.CountActiveQueueEntriesForPatientParams) (int64, error)) *MockQueueRepository_CountActiveQueueEntriesForPatient_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CountAhead provides a mock function with given fields: ctx, arg
 func (_m *MockQueueRepository) CountAhead(ctx context.Context, arg db.CountAheadParams) (int64, error) {
 	ret := _m.Called(ctx, arg)
@@ -366,6 +423,63 @@ func (_c *MockQueueRepository_CountWaiting_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
+// CountWalkInsForDate provides a mock function with given fields: ctx, arg
+func (_m *MockQueueRepository) CountWalkInsForDate(ctx context.Context, arg db.CountWalkInsForDateParams) (int64, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountWalkInsForDate")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountWalkInsForDateParams) (int64, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.CountWalkInsForDateParams) int64); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.CountWalkInsForDateParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockQueueRepository_CountWalkInsForDate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountWalkInsForDate'
+type MockQueueRepository_CountWalkInsForDate_Call struct {
+	*mock.Call
+}
+
+// CountWalkInsForDate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.CountWalkInsForDateParams
+func (_e *MockQueueRepository_Expecter) CountWalkInsForDate(ctx interface{}, arg interface{}) *MockQueueRepository_CountWalkInsForDate_Call {
+	return &MockQueueRepository_CountWalkInsForDate_Call{Call: _e.mock.On("CountWalkInsForDate", ctx, arg)}
+}
+
+func (_c *MockQueueRepository_CountWalkInsForDate_Call) Run(run func(ctx context.Context, arg db.CountWalkInsForDateParams)) *MockQueueRepository_CountWalkInsForDate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.CountWalkInsForDateParams))
+	})
+	return _c
+}
+
+func (_c *MockQueueRepository_CountWalkInsForDate_Call) Return(_a0 int64, _a1 error) *MockQueueRepository_CountWalkInsForDate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockQueueRepository_CountWalkInsForDate_Call) RunAndReturn(run func(context.Context, db.CountWalkInsForDateParams) (int64, error)) *MockQueueRepository_CountWalkInsForDate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EnqueueEntry provides a mock function with given fields: ctx, arg
 func (_m *MockQueueRepository) EnqueueEntry(ctx context.Context, arg db.EnqueueEntryParams) (db.QueueEntry, error) {
 	ret := _m.Called(ctx, arg)
@@ -533,6 +647,65 @@ func (_c *MockQueueRepository_GetQueueEntryForPatient_Call) Return(_a0 db.QueueE
 }
 
 func (_c *MockQueueRepository_GetQueueEntryForPatient_Call) RunAndReturn(run func(context.Context, db.GetQueueEntryForPatientParams) (db.QueueEntry, error)) *MockQueueRepository_GetQueueEntryForPatient_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListQueueEntriesNeedingNearNotice provides a mock function with given fields: ctx, arg
+func (_m *MockQueueRepository) ListQueueEntriesNeedingNearNotice(ctx context.Context, arg db.ListQueueEntriesNeedingNearNoticeParams) ([]db.ListQueueEntriesNeedingNearNoticeRow, error) {
+	ret := _m.Called(ctx, arg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListQueueEntriesNeedingNearNotice")
+	}
+
+	var r0 []db.ListQueueEntriesNeedingNearNoticeRow
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, db.ListQueueEntriesNeedingNearNoticeParams) ([]db.ListQueueEntriesNeedingNearNoticeRow, error)); ok {
+		return rf(ctx, arg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, db.ListQueueEntriesNeedingNearNoticeParams) []db.ListQueueEntriesNeedingNearNoticeRow); ok {
+		r0 = rf(ctx, arg)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]db.ListQueueEntriesNeedingNearNoticeRow)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, db.ListQueueEntriesNeedingNearNoticeParams) error); ok {
+		r1 = rf(ctx, arg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListQueueEntriesNeedingNearNotice'
+type MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call struct {
+	*mock.Call
+}
+
+// ListQueueEntriesNeedingNearNotice is a helper method to define mock.On call
+//   - ctx context.Context
+//   - arg db.ListQueueEntriesNeedingNearNoticeParams
+func (_e *MockQueueRepository_Expecter) ListQueueEntriesNeedingNearNotice(ctx interface{}, arg interface{}) *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call {
+	return &MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call{Call: _e.mock.On("ListQueueEntriesNeedingNearNotice", ctx, arg)}
+}
+
+func (_c *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call) Run(run func(ctx context.Context, arg db.ListQueueEntriesNeedingNearNoticeParams)) *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(db.ListQueueEntriesNeedingNearNoticeParams))
+	})
+	return _c
+}
+
+func (_c *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call) Return(_a0 []db.ListQueueEntriesNeedingNearNoticeRow, _a1 error) *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call) RunAndReturn(run func(context.Context, db.ListQueueEntriesNeedingNearNoticeParams) ([]db.ListQueueEntriesNeedingNearNoticeRow, error)) *MockQueueRepository_ListQueueEntriesNeedingNearNotice_Call {
 	_c.Call.Return(run)
 	return _c
 }

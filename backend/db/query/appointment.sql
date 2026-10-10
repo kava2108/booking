@@ -48,3 +48,29 @@ WHERE a.status = 'booked'
   AND s.start_at >= sqlc.arg(from_at)
   AND s.start_at <  sqlc.arg(to_at)
 ORDER BY s.start_at;
+
+-- name: GetAppointmentWithSlot :one
+-- スタッフの来院受付用。患者スコープなしなので StaffOnly のハンドラーからのみ使うこと。
+SELECT a.id, a.appointment_no, a.patient_id, a.status, s.id AS slot_id, s.department_id, s.start_at
+FROM appointments a
+JOIN slots s ON s.id = a.slot_id
+WHERE a.id = $1;
+
+-- name: CompleteAppointment :execrows
+-- 診察完了時に予約を completed にする。更新件数 0 = 既に完了/取消済み。
+UPDATE appointments SET status = 'completed' WHERE id = $1 AND status = 'booked';
+
+-- name: ListAppointmentsNeedingReminder :many
+-- 診療日が [from_at, to_at) の有効な予約のうち、リマインド未登録のもの。
+SELECT a.id, a.appointment_no, a.patient_id, s.start_at, d.name AS department_name, dr.name AS doctor_name
+FROM appointments a
+JOIN slots s       ON s.id = a.slot_id
+JOIN departments d ON d.id = s.department_id
+JOIN doctors dr    ON dr.id = s.doctor_id
+WHERE a.status = 'booked'
+  AND s.start_at >= sqlc.arg(from_at) AND s.start_at < sqlc.arg(to_at)
+  AND NOT EXISTS (
+    SELECT 1 FROM notifications n
+    WHERE n.kind = 'appointment_reminder' AND n.payload ->> 'appointment_id' = a.id::text
+  )
+ORDER BY s.start_at;

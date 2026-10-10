@@ -212,6 +212,7 @@ type RateLimiters struct {
 	Login     echo.MiddlewareFunc // IP 単位の緩い天井(アカウント単位の制限は service の AttemptGuard)
 	Sensitive echo.MiddlewareFunc // 登録・リセット申請/確定(メール送信の濫用防止)
 	Refresh   echo.MiddlewareFunc // 通常の更新頻度を妨げない緩い制限
+	Public    echo.MiddlewareFunc // 未ログインで呼べる公開 API（診療科・枠・待ち時間）
 }
 
 // Routes は /api/v1/auth 配下のルートを登録する。トークンを返す応答はキャッシュさせない。

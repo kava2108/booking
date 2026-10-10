@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kava2108/booking/backend/internal/repository/db"
 )
@@ -16,6 +17,7 @@ import (
 type SlotRepository interface {
 	ListSlots(ctx context.Context, arg db.ListSlotsParams) ([]db.Slot, error)
 	GetSlot(ctx context.Context, id uuid.UUID) (db.Slot, error)
+	GetSlotDetail(ctx context.Context, id uuid.UUID) (db.GetSlotDetailRow, error)
 	CreateSlotIfAbsent(ctx context.Context, arg db.CreateSlotIfAbsentParams) error
 	// ReserveSlot は満席・休診のとき pgx.ErrNoRows を返す。
 	ReserveSlot(ctx context.Context, id uuid.UUID) (db.Slot, error)
@@ -30,6 +32,10 @@ type AppointmentRepository interface {
 	ListAppointmentsByPatient(ctx context.Context, patientID uuid.UUID) ([]db.ListAppointmentsByPatientRow, error)
 	CancelAppointment(ctx context.Context, arg db.CancelAppointmentParams) (db.Appointment, error)
 	RescheduleAppointment(ctx context.Context, arg db.RescheduleAppointmentParams) (db.Appointment, error)
+	// GetAppointmentWithSlot は患者スコープなし。スタッフ操作（来院受付）専用。
+	GetAppointmentWithSlot(ctx context.Context, id uuid.UUID) (db.GetAppointmentWithSlotRow, error)
+	CompleteAppointment(ctx context.Context, id uuid.UUID) (int64, error)
+	ListAppointmentsNeedingReminder(ctx context.Context, arg db.ListAppointmentsNeedingReminderParams) ([]db.ListAppointmentsNeedingReminderRow, error)
 	CountPatientBookingsAt(ctx context.Context, arg db.CountPatientBookingsAtParams) (int64, error)
 	ListBookedAppointmentsForNotice(ctx context.Context, arg db.ListBookedAppointmentsForNoticeParams) ([]db.ListBookedAppointmentsForNoticeRow, error)
 }
@@ -43,6 +49,9 @@ type QueueRepository interface {
 	CallQueueEntry(ctx context.Context, id uuid.UUID) (db.QueueEntry, error)
 	StartQueueEntry(ctx context.Context, id uuid.UUID) (db.QueueEntry, error)
 	CompleteQueueEntry(ctx context.Context, id uuid.UUID) (db.QueueEntry, error)
+	ListQueueEntriesNeedingNearNotice(ctx context.Context, arg db.ListQueueEntriesNeedingNearNoticeParams) ([]db.ListQueueEntriesNeedingNearNoticeRow, error)
+	CountWalkInsForDate(ctx context.Context, arg db.CountWalkInsForDateParams) (int64, error)
+	CountActiveQueueEntriesForPatient(ctx context.Context, arg db.CountActiveQueueEntriesForPatientParams) (int64, error)
 	CancelQueueEntry(ctx context.Context, id uuid.UUID) (db.QueueEntry, error)
 	CountAhead(ctx context.Context, arg db.CountAheadParams) (int64, error)
 	CountWaiting(ctx context.Context, arg db.CountWaitingParams) (int64, error)
@@ -59,11 +68,20 @@ type NotificationRepository interface {
 	ClaimNotifications(ctx context.Context, arg db.ClaimNotificationsParams) ([]db.Notification, error)
 	MarkNotificationSent(ctx context.Context, id uuid.UUID) error
 	MarkNotificationFailed(ctx context.Context, id uuid.UUID) error
+	// EnqueueNotificationOnce は冪等な登録（リマインド/順番接近）。既に登録済みなら 0 を返す。
+	EnqueueNotificationOnce(ctx context.Context, arg db.EnqueueNotificationOnceParams) (int64, error)
+	RescheduleNotification(ctx context.Context, arg db.RescheduleNotificationParams) error
 }
 
 // AdminRepository はマスタ・設定・休診・監査ログを扱う。
 type AdminRepository interface {
 	ListDepartments(ctx context.Context) ([]db.Department, error)
+	// GetDepartment / GetDoctor は存在しないとき pgx.ErrNoRows。
+	GetDepartment(ctx context.Context, id int64) (db.Department, error)
+	// LockDepartment は Tx 内で診療科の行をロックする（受付の直列化）。
+	LockDepartment(ctx context.Context, id int64) (int64, error)
+	GetDoctor(ctx context.Context, id int64) (db.Doctor, error)
+	ListClosuresFrom(ctx context.Context, after pgtype.Timestamptz) ([]db.ListClosuresFromRow, error)
 	ListDoctors(ctx context.Context, departmentID int64) ([]db.Doctor, error)
 	GetClinicSettings(ctx context.Context) (db.ClinicSetting, error)
 	UpdateClinicSettings(ctx context.Context, arg db.UpdateClinicSettingsParams) (db.ClinicSetting, error)

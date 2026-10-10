@@ -25,6 +25,8 @@ type NoopMailer struct{}
 func (NoopMailer) SendRegistrationConfirmation(context.Context, string, string) error { return nil }
 func (NoopMailer) SendPasswordReset(context.Context, string, string, string) error    { return nil }
 
+func (NoopMailer) Send(context.Context, string, string, string) error { return nil }
+
 // SMTPConfig は SMTP 送信の設定。
 type SMTPConfig struct {
 	Host     string
@@ -58,6 +60,15 @@ func (m *SMTPMailer) SendRegistrationConfirmation(_ context.Context, to, name st
 func (m *SMTPMailer) SendPasswordReset(_ context.Context, to, name, resetURL string) error {
 	body := fmt.Sprintf("%s 様\r\n\r\nパスワード再設定のご依頼を受け付けました。30 分以内に次の URL から設定してください。\r\n\r\n%s\r\n\r\nご依頼に心当たりがない場合は、このメールを破棄してください(パスワードは変更されません)。\r\n", sanitizeText(name), resetURL)
 	return m.deliver(to, "パスワード再設定のご案内", body)
+}
+
+// Send は任意の件名・本文のメールを送る（NotificationSender の実装）。改行は CRLF に正規化する。
+func (m *SMTPMailer) Send(_ context.Context, to, subject, body string) error {
+	if strings.ContainsAny(subject, "\r\n") {
+		return errors.New("mailer: invalid subject")
+	}
+	body = strings.ReplaceAll(strings.ReplaceAll(body, "\r\n", "\n"), "\n", "\r\n")
+	return m.deliver(to, subject, body)
 }
 
 // deliver は宛先を検証して送信する。宛先に改行・複数アドレスが含まれる場合は拒否する(ヘッダーインジェクション対策)。

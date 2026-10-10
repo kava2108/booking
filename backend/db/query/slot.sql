@@ -39,3 +39,12 @@ WHERE (sqlc.narg(doctor_id)::bigint IS NULL OR doctor_id = sqlc.narg(doctor_id))
   AND start_at <  sqlc.arg(to_at)
   AND status = 'open'
 RETURNING id;
+
+-- name: GetSlotDetail :one
+-- 診療科名・医師名つき。予約確定の検証と通知 payload の作成に使う。
+SELECT s.id, s.department_id, s.doctor_id, s.start_at, s.capacity, s.booked_count, s.status,
+       d.name AS department_name, dr.name AS doctor_name
+FROM slots s
+JOIN departments d ON d.id = s.department_id
+JOIN doctors dr    ON dr.id = s.doctor_id
+WHERE s.id = $1;

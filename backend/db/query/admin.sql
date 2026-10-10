@@ -49,3 +49,21 @@ VALUES (sqlc.narg(doctor_id), tstzrange(sqlc.arg(from_at)::timestamptz, sqlc.arg
 -- 対象 ID とアクションのみ記録する。症状メモ等の本文は記録しない。
 INSERT INTO audit_logs (actor_id, action, target)
 VALUES (sqlc.arg(actor_id), sqlc.arg(action), sqlc.arg(target));
+
+-- name: GetDepartment :one
+SELECT * FROM departments WHERE id = $1;
+
+-- name: GetDoctor :one
+SELECT * FROM doctors WHERE id = $1;
+
+-- name: ListClosuresFrom :many
+-- 終了が基準時刻より後の休診。枠生成時に既存の休診期間を再適用するために使う。
+SELECT id, doctor_id, lower(period)::timestamptz AS from_at, upper(period)::timestamptz AS to_at, reason
+FROM closures
+WHERE upper(period) > sqlc.arg(after)::timestamptz
+ORDER BY lower(period);
+
+-- name: LockDepartment :one
+-- 診療科の行をロックする（トランザクション内）。同じ診療科への同時の受付を直列化し、
+-- 当日受付の定員判定と受付番号の採番の競合を防ぐ。
+SELECT id FROM departments WHERE id = $1 FOR UPDATE;

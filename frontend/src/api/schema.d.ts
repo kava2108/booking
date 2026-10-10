@@ -362,7 +362,7 @@ export interface components {
             start_at: string;
             available: boolean;
             /** @enum {string} */
-            unavailable_reason?: "full" | "closed" | "past_cutoff";
+            unavailable_reason?: "full" | "closed" | "past_cutoff" | "outside_window";
         };
         CreateAppointmentRequest: {
             /** Format: uuid */
@@ -524,6 +524,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description サーバー内部エラー（詳細は応答に含めない。request_id で調査する） */
+        InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description 不正なリクエスト */
         BadRequest: {
             headers: {
@@ -618,6 +627,7 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
         };
     };
     listDoctors: {
@@ -642,6 +652,7 @@ export interface operations {
             };
             422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
         };
     };
     listSlots: {
@@ -668,6 +679,7 @@ export interface operations {
             };
             422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
         };
     };
     createAppointment: {
@@ -692,9 +704,11 @@ export interface operations {
                     "application/json": components["schemas"]["Appointment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     listMyAppointments: {
@@ -716,6 +730,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
         };
     };
     cancelAppointment: {
@@ -739,6 +754,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     rescheduleAppointment: {
@@ -765,10 +781,12 @@ export interface operations {
                     "application/json": components["schemas"]["Appointment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     getMyPosition: {
@@ -793,6 +811,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
         };
     };
     getWaitTimes: {
@@ -814,6 +833,7 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalError"];
         };
     };
     createWalkIn: {
@@ -838,8 +858,11 @@ export interface operations {
                     "application/json": components["schemas"]["WalkInTicket"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     createStaffWalkIn: {
@@ -864,9 +887,12 @@ export interface operations {
                     "application/json": components["schemas"]["WalkInTicket"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     listStaffQueue: {
@@ -891,6 +917,8 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     checkInQueueEntry: {
@@ -917,6 +945,8 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     callQueueEntry: {
@@ -943,6 +973,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
         };
     };
     startQueueEntry: {
@@ -969,6 +1000,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
         };
     };
     completeQueueEntry: {
@@ -995,6 +1027,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
         };
     };
     createClosure: {
@@ -1019,9 +1052,11 @@ export interface operations {
                     "application/json": components["schemas"]["ClosureResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     putSchedules: {
@@ -1044,9 +1079,11 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
     putSettings: {
@@ -1071,9 +1108,11 @@ export interface operations {
                     "application/json": components["schemas"]["Settings"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
         };
     };
 }

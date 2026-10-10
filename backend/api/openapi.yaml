@@ -32,6 +32,8 @@ paths:
       operationId: listDepartments
       security: []
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -54,6 +56,8 @@ paths:
           required: true
           schema: { type: integer, format: int64 }
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -87,6 +91,8 @@ paths:
           required: true
           schema: { type: string, format: date }
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -111,6 +117,10 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateAppointmentRequest"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "201":
           description: OK
           content:
@@ -129,6 +139,8 @@ paths:
       summary: 自分の予約一覧
       operationId: listMyAppointments
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -153,6 +165,10 @@ paths:
             schema:
               $ref: "#/components/schemas/RescheduleRequest"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "200":
           description: OK
           content:
@@ -174,6 +190,8 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "204":
           description: OK
         "401":
@@ -190,6 +208,8 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -208,6 +228,8 @@ paths:
       description: 未ログイン可。個人情報を含まない。サーバー側で 10 秒キャッシュ。
       security: []
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -228,6 +250,12 @@ paths:
             schema:
               $ref: "#/components/schemas/WalkInRequest"
       responses:
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "201":
           description: OK
           content:
@@ -251,6 +279,12 @@ paths:
             schema:
               $ref: "#/components/schemas/StaffWalkInRequest"
       responses:
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "201":
           description: OK
           content:
@@ -276,6 +310,10 @@ paths:
           required: true
           schema: { type: integer, format: int64 }
       responses:
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -297,6 +335,10 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -320,6 +362,8 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -343,6 +387,8 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -366,6 +412,8 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
         "200":
           description: OK
           content:
@@ -394,6 +442,10 @@ paths:
             schema:
               $ref: "#/components/schemas/ClosureRequest"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "201":
           description: OK
           content:
@@ -419,6 +471,10 @@ paths:
             schema:
               $ref: "#/components/schemas/SchedulesRequest"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "200":
           description: OK
         "401":
@@ -440,6 +496,10 @@ paths:
             schema:
               $ref: "#/components/schemas/SettingsRequest"
       responses:
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "200":
           description: OK
           content:
@@ -465,6 +525,9 @@ components:
       required: true
       schema: { type: string, format: uuid }
   responses:
+    InternalError:
+      description: サーバー内部エラー（詳細は応答に含めない。request_id で調査する）
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     BadRequest:
       description: 不正なリクエスト
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
@@ -532,7 +595,7 @@ components:
         available: { type: boolean }
         unavailable_reason:
           type: string
-          enum: [full, closed, past_cutoff]
+          enum: [full, closed, past_cutoff, outside_window]
     CreateAppointmentRequest:
       type: object
       required: [slot_id, visit_type]

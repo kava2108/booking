@@ -86,3 +86,26 @@ func TestNoopMailer(t *testing.T) {
 	assert.NoError(t, m.SendRegistrationConfirmation(context.Background(), "a@example.com", "n"))
 	assert.NoError(t, m.SendPasswordReset(context.Background(), "a@example.com", "n", "https://x"))
 }
+
+// IMP 14: 汎用 Send（通知ワーカー用）
+func TestSMTPMailer_SendGeneric(t *testing.T) {
+	m, out := newSMTP(t)
+
+	require.NoError(t, m.Send(context.Background(), "user@example.com", "【予約確認】テスト", "1行目\n2行目"))
+
+	require.Len(t, *out, 1)
+	assert.Contains(t, (*out)[0].msg, "Subject: =?utf-8?")
+	assert.NotContains(t, (*out)[0].msg, "【予約確認】", "件名は RFC 2047 でエンコードされる")
+}
+
+func TestSMTPMailer_SendRejectsHeaderInjection(t *testing.T) {
+	m, out := newSMTP(t)
+
+	assert.Error(t, m.Send(context.Background(), "user@example.com", "件名\r\nBcc: evil@example.com", "本文"))
+	assert.Error(t, m.Send(context.Background(), "a@example.com\nBcc: x@example.com", "件名", "本文"))
+	assert.Empty(t, *out)
+}
+
+func TestNoopMailer_Send(t *testing.T) {
+	assert.NoError(t, NoopMailer{}.Send(context.Background(), "a@example.com", "s", "b"))
+}

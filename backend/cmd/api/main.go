@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -67,9 +68,34 @@ func run(logger zerolog.Logger) error {
 		},
 		service.WithLogger(logger))
 
+	store := repository.NewStore(pool)
+	repos := store.Repositories()
+	slots := service.NewSlotService(repos, store)
+	admin := service.NewAdminService(repos, store, slots)
+	appointments := service.NewAppointmentService(repos, store)
+	queue := service.NewQueueService(repos, store)
+
+	// バックグラウンドジョブ。停止時は ctx が終了するのを待つ。
+	var jobs sync.WaitGroup
+	defer jobs.Wait()
+	runJob := func(f func()) { jobs.Add(1); go func() { defer jobs.Done(); f() }() }
+	runJob(func() { service.RunSlotGenerator(ctx, slots, time.Hour, logger) })                                        // 枠の定期生成（冪等）
+	runJob(func() { service.NewReminderScheduler(repos, service.WithSchedulerLogger(logger)).Run(ctx, time.Minute) }) // リマインド・順番接近の登録
+	if cfg.SMTPHost != "" {
+		sender := service.NewSMTPMailer(service.SMTPConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.SMTPFrom})
+		worker := service.NewNotificationWorker(repos.Notifications, repository.NewUserRepository(q), sender, service.WithWorkerLogger(logger))
+		runJob(func() { worker.Run(ctx, 10*time.Second) })
+	} else {
+		// 送信手段が無いときはワーカーを起動しない（通知は pending のまま残り、設定後に送られる）
+		logger.Warn().Msg("SMTP_HOST is not set: notification worker is disabled; notifications stay pending")
+	}
+
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.ServerPort),
-		Handler:           app.New(app.Deps{Config: cfg, Logger: logger, Auth: svc, Tokens: tm}),
+		Addr: fmt.Sprintf(":%d", cfg.ServerPort),
+		Handler: app.New(app.Deps{
+			Config: cfg, Logger: logger, Auth: svc, Tokens: tm,
+			Slots: slots, Admin: admin, Appointments: appointments, Queue: queue, Audit: repos.Admin,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errCh := make(chan error, 1)

@@ -91,6 +91,28 @@ func (q *Queries) EnqueueNotification(ctx context.Context, arg EnqueueNotificati
 	return i, err
 }
 
+const enqueueNotificationOnce = `-- name: EnqueueNotificationOnce :execrows
+INSERT INTO notifications (user_id, kind, payload)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
+`
+
+type EnqueueNotificationOnceParams struct {
+	UserID  uuid.UUID
+	Kind    string
+	Payload []byte
+}
+
+// リマインド/順番接近通知用の冪等な登録。部分ユニークインデックス(000009)により、同じ予約・同じ待機列項目では
+// 並行しても 1 件だけ登録される。影響行数 0 = 既に登録済み。
+func (q *Queries) EnqueueNotificationOnce(ctx context.Context, arg EnqueueNotificationOnceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, enqueueNotificationOnce, arg.UserID, arg.Kind, arg.Payload)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const markNotificationFailed = `-- name: MarkNotificationFailed :exec
 UPDATE notifications SET status = 'failed' WHERE id = $1
 `
@@ -106,5 +128,22 @@ UPDATE notifications SET status = 'sent' WHERE id = $1
 
 func (q *Queries) MarkNotificationSent(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markNotificationSent, id)
+	return err
+}
+
+const rescheduleNotification = `-- name: RescheduleNotification :exec
+UPDATE notifications
+SET send_after = now() + make_interval(secs => $1::float8)
+WHERE id = $2 AND status = 'pending'
+`
+
+type RescheduleNotificationParams struct {
+	DelaySeconds float64
+	ID           uuid.UUID
+}
+
+// 送信失敗時のバックオフ。pending のものだけ send_after を後ろ倒しする。
+func (q *Queries) RescheduleNotification(ctx context.Context, arg RescheduleNotificationParams) error {
+	_, err := q.db.Exec(ctx, rescheduleNotification, arg.DelaySeconds, arg.ID)
 	return err
 }
