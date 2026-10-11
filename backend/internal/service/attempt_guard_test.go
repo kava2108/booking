@@ -176,3 +176,20 @@ func TestMemoryGuard_EvictionKeepsLockedEntries(t *testing.T) {
 	blocked, _ := g.Blocked("victim")
 	assert.True(t, blocked)
 }
+
+func TestMemoryGuard_ResetAccountClearsEveryIPKey(t *testing.T) {
+	g := NewMemoryGuard(1, time.Minute)
+	g.Fail("user@example.com|203.0.113.9")
+	g.Fail("user@example.com|198.51.100.7")
+	g.Fail("user@example.com")
+	g.Fail("other@example.com|203.0.113.9")
+
+	g.ResetAccount("user@example.com")
+
+	for _, k := range []string{"user@example.com|203.0.113.9", "user@example.com|198.51.100.7", "user@example.com"} {
+		blocked, _ := g.Blocked(k)
+		assert.False(t, blocked, k)
+	}
+	blocked, _ := g.Blocked("other@example.com|203.0.113.9")
+	assert.True(t, blocked, "別アカウントは解除しない")
+}

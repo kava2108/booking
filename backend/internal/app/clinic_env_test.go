@@ -94,7 +94,12 @@ func loadRouter(t *testing.T) routers.Router {
 
 // token は指定ロールのアクセストークンを発行する（DB 上のユーザーは不要なエンドポイント用）。
 func (a *clinicApp) token(role domain.Role) string {
-	tok, _, err := a.tm.IssueAccess(uuid.New(), role)
+	id := uuid.New()
+	if role == domain.RoleStaff || role == domain.RoleClinicAdmin {
+		// 書き込みが監査ログ(actor_id は users への FK)に残るため、実在ユーザーにする
+		id = a.newUser(id.String()+"@example.com", role).ID
+	}
+	tok, _, err := a.tm.IssueAccess(id, role)
 	require.NoError(a.t, err)
 	return tok
 }

@@ -307,3 +307,28 @@ func TestQueue_NoPersonalDataLeaksToPatientsOrLogs(t *testing.T) {
 	assert.NotContains(t, rec.Body.String(), "咳")
 	assert.NotContains(t, a.logs.String(), "3日前から咳", "ログに症状メモを出さない")
 }
+
+// S4: スタッフの状態変更・代行受付と、管理者の設定変更も監査ログに残る(誰が・どの対象に)
+func TestStaffAndAdminWrites_AreAudited(t *testing.T) {
+	a := newClinicApp(t, nil)
+	staffUser := a.newUser("staff@example.com", domain.RoleStaff)
+	adminUser := a.newUser("admin@example.com", domain.RoleClinicAdmin)
+
+	rec := a.call(http.MethodPost, "/api/v1/staff/walk-ins", map[string]any{"department_id": a.deptID, "display_name": "来院 太郎"}, a.tokenFor(staffUser.ID, domain.RoleStaff))
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	rec = a.call(http.MethodPut, "/api/v1/admin/settings", map[string]any{"cancel_deadline_minutes": 90}, a.tokenFor(adminUser.ID, domain.RoleClinicAdmin))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	var action, target string
+	require.NoError(t, a.pool.QueryRow(t.Context(), `SELECT action, target FROM audit_logs WHERE actor_id=$1`, staffUser.ID).Scan(&action, &target))
+	assert.Equal(t, "staff_queue_action", action)
+	assert.Equal(t, "/api/v1/staff/walk-ins", target)
+	require.NoError(t, a.pool.QueryRow(t.Context(), `SELECT action, target FROM audit_logs WHERE actor_id=$1`, adminUser.ID).Scan(&action, &target))
+	assert.Equal(t, "admin_update", action)
+	assert.Equal(t, "/api/v1/admin/settings", target)
+
+	// 認可で弾かれた要求は記録しない
+	before := a.count(`SELECT count(*) FROM audit_logs`)
+	assert.Equal(t, http.StatusForbidden, a.call(http.MethodPut, "/api/v1/admin/settings", map[string]any{"cancel_deadline_minutes": 10}, a.token(domain.RolePatient)).Code)
+	assert.Equal(t, before, a.count(`SELECT count(*) FROM audit_logs`))
+}

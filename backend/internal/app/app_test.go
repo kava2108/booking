@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"bytes"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kava2108/booking/backend/internal/app"
 	"github.com/kava2108/booking/backend/internal/config"
@@ -67,4 +69,34 @@ func TestServer_RecoversFromPanic(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.NotContains(t, rec.Body.String(), "secret internal detail")
 	assert.JSONEq(t, `{"error":"internal_error","message":"internal server error","request_id":"`+rec.Header().Get("X-Request-ID")+`"}`, rec.Body.String())
+}
+
+// S1: すべての応答にセキュリティヘッダが付く
+func TestServer_SetsSecurityHeaders(t *testing.T) {
+	rec, _, serve := baseServer()
+	serve(httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	h := rec.Header()
+	assert.Equal(t, "nosniff", h.Get("X-Content-Type-Options"))
+	assert.Equal(t, "DENY", h.Get("X-Frame-Options"))
+	assert.Equal(t, "no-referrer", h.Get("Referrer-Policy"))
+	assert.Contains(t, h.Get("Content-Security-Policy"), "default-src 'none'")
+	assert.Empty(t, h.Get("Strict-Transport-Security"), "平文 HTTP には HSTS を付けない")
+}
+
+// S2: TRUSTED_PROXIES のプロキシ経由なら X-Forwarded-For のクライアント IP を使う。それ以外は偽装を無視する
+func TestServer_TrustedProxyForwardedFor(t *testing.T) {
+	_, proxies, err := net.ParseCIDR("10.0.0.0/8")
+	require.NoError(t, err)
+	e := app.New(app.Deps{Config: &config.Config{TrustedProxies: []*net.IPNet{proxies}}, Logger: zerolog.Nop()})
+
+	viaProxy := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	viaProxy.RemoteAddr = "10.1.2.3:4444"
+	viaProxy.Header.Set("X-Forwarded-For", "198.51.100.7")
+	assert.Equal(t, "198.51.100.7", e.IPExtractor(viaProxy))
+
+	spoofed := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	spoofed.RemoteAddr = "203.0.113.9:1234"
+	spoofed.Header.Set("X-Forwarded-For", "1.1.1.1")
+	assert.Equal(t, "203.0.113.9", e.IPExtractor(spoofed), "信頼しない接続元の XFF は無視")
 }

@@ -132,9 +132,12 @@ func (h *AdminHandler) GetSchedules(c echo.Context) error {
 }
 
 // Routes は /api/v1/admin 配下を登録する。jwtAuth → adminOnly の順で適用する。
-func (h *AdminHandler) Routes(g *echo.Group, jwtAuth, adminOnly echo.MiddlewareFunc) {
+func (h *AdminHandler) Routes(g *echo.Group, jwtAuth, adminOnly, audit echo.MiddlewareFunc) {
+	if audit == nil {
+		audit = func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+	}
 	g.GET("/schedules", h.GetSchedules, jwtAuth, adminOnly, noStore)
-	g.PUT("/schedules", h.PutSchedules, jwtAuth, adminOnly)
+	g.PUT("/schedules", h.PutSchedules, jwtAuth, adminOnly, audit)
 	g.GET("/settings", h.GetSettings, jwtAuth, adminOnly, noStore)
-	g.PUT("/settings", h.PutSettings, jwtAuth, adminOnly)
+	g.PUT("/settings", h.PutSettings, jwtAuth, adminOnly, audit)
 }

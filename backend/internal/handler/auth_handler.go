@@ -134,7 +134,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	if handled, err := bindValidate(c, &req); handled {
 		return err
 	}
-	pair, err := h.svc.Login(c.Request().Context(), req.Email, req.Password)
+	pair, err := h.svc.Login(service.WithClientIP(c.Request().Context(), c.RealIP()), req.Email, req.Password)
 	var tooMany *service.TooManyAttemptsError
 	switch {
 	case errors.As(err, &tooMany):

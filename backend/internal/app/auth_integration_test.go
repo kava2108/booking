@@ -306,8 +306,9 @@ func TestLogin_AccountLockout(t *testing.T) {
 	// 同じ IP でも別アカウントは影響を受けない（共有 Wi-Fi の別患者を巻き込まない）
 	assert.Equal(t, http.StatusOK, a.login(t, "other@example.com", pass).Code)
 
-	// 別 IP や X-Forwarded-For を変えても、そのアカウントはロックされたまま
-	assert.Equal(t, http.StatusTooManyRequests, a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"email": "user@example.com", "password": pass}, withIP("198.51.100.77")).Code)
+	// ロックはアカウント+IP 単位: 別 IP(本人の別の回線)は締め出されない。攻撃者に他人のアカウントを使用不能にされない
+	assert.Equal(t, http.StatusOK, a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"email": "user@example.com", "password": pass}, withIP("198.51.100.77")).Code)
+	// X-Forwarded-For は信用しないので、偽装しても同じ IP のままロックされる
 	spoof := a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"email": "USER@example.com", "password": pass}, func(r *http.Request) { r.Header.Set("X-Forwarded-For", "192.0.2.1") })
 	assert.Equal(t, http.StatusTooManyRequests, spoof.Code, "大文字違いのメールでも同じアカウント")
 }

@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -46,6 +47,9 @@ type Config struct {
 
 	// CookieSecure は Cookie の Secure 属性。本番は true。http の開発環境のみ false にできる。
 	CookieSecure bool
+	// TrustedProxies は X-Forwarded-For を信用するプロキシの CIDR。空なら接続元 IP をそのまま使う。
+	TrustedProxies []*net.IPNet
+
 	// AppBaseURL はフロントエンドの URL(パスワードリセットのリンクに使う)。
 	AppBaseURL string
 }
@@ -109,6 +113,20 @@ func Load() (*Config, error) {
 		return raw
 	}
 
+	var trusted []*net.IPNet
+	for _, raw := range strings.Split(v.GetString("TRUSTED_PROXIES"), ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		_, n, err := net.ParseCIDR(raw)
+		if err != nil {
+			errs = append(errs, errors.New("TRUSTED_PROXIES must be a comma-separated list of CIDRs"))
+			break
+		}
+		trusted = append(trusted, n)
+	}
+
 	cfg := &Config{
 		ServerPort:            positive("SERVER_PORT"),
 		DBDSN:                 required("DB_DSN"),
@@ -130,8 +148,9 @@ func Load() (*Config, error) {
 		RateLimitPublicMax:    positive("RATE_LIMIT_PUBLIC_MAX"),
 		RateLimitPublicWindow: duration("RATE_LIMIT_PUBLIC_WINDOW"),
 
-		CookieSecure: boolean("COOKIE_SECURE"),
-		AppBaseURL:   httpURL("APP_BASE_URL"),
+		CookieSecure:   boolean("COOKIE_SECURE"),
+		AppBaseURL:     httpURL("APP_BASE_URL"),
+		TrustedProxies: trusted,
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)

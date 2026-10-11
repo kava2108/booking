@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,6 +16,8 @@ type AttemptGuard interface {
 	Fail(key string)
 	// Reset はカウントとロックを解除する。
 	Reset(key string)
+	// ResetAccount は account と、"account|<付加情報>" 形式のキーをすべて解除する(IP 別キーをまとめて解除する用)。
+	ResetAccount(account string)
 }
 
 const defaultGuardMaxEntries = 100_000
@@ -103,6 +106,16 @@ func (g *MemoryGuard) Reset(key string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	delete(g.entries, key)
+}
+
+func (g *MemoryGuard) ResetAccount(account string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for k := range g.entries {
+		if k == account || strings.HasPrefix(k, account+"|") {
+			delete(g.entries, k)
+		}
+	}
 }
 
 // expired はカウント窓、またはロックが終わっているか。
