@@ -183,23 +183,23 @@ func (h *QueueHandler) PatientRoutes(g *echo.Group, jwtAuth echo.MiddlewareFunc)
 }
 
 // StaffRoutes は /staff 配下。jwtAuth → staffOnly の順に適用し、待機列の参照は audit で記録する。
-func (h *QueueHandler) StaffRoutes(g *echo.Group, jwtAuth, staffOnly, audit, auditAppointments echo.MiddlewareFunc) {
-	g.POST("/walk-ins", h.CreateStaffWalkIn, jwtAuth, staffOnly, noStore)
+func (h *QueueHandler) StaffRoutes(g *echo.Group, jwtAuth, staffOnly, audit, auditAppointments, auditAction echo.MiddlewareFunc) {
+	g.POST("/walk-ins", h.CreateStaffWalkIn, jwtAuth, staffOnly, auditAction, noStore)
 	// 監査ログは「個人情報を返す」リクエストだけ記録するため、パラメータ検証を監査の前に行う
 	g.GET("/queue", h.ListStaffQueue, jwtAuth, staffOnly, requirePositiveIntQuery("department_id"), audit, noStore)
 	g.GET("/appointments", h.ListStaffAppointments, jwtAuth, staffOnly, requirePositiveIntQuery("department_id"), requireDateQuery("date"), auditAppointments, noStore)
 	g.POST("/queue/:id/check-in", h.action(func(h *QueueHandler, c echo.Context, id uuid.UUID) (*service.QueueState, error) {
 		return h.svc.CheckIn(c.Request().Context(), id)
-	}), jwtAuth, staffOnly, noStore)
+	}), jwtAuth, staffOnly, auditAction, noStore)
 	g.POST("/queue/:id/call", h.action(func(h *QueueHandler, c echo.Context, id uuid.UUID) (*service.QueueState, error) {
 		return h.svc.Call(c.Request().Context(), id)
-	}), jwtAuth, staffOnly, noStore)
+	}), jwtAuth, staffOnly, auditAction, noStore)
 	g.POST("/queue/:id/start", h.action(func(h *QueueHandler, c echo.Context, id uuid.UUID) (*service.QueueState, error) {
 		return h.svc.Start(c.Request().Context(), id)
-	}), jwtAuth, staffOnly, noStore)
+	}), jwtAuth, staffOnly, auditAction, noStore)
 	g.POST("/queue/:id/complete", h.action(func(h *QueueHandler, c echo.Context, id uuid.UUID) (*service.QueueState, error) {
 		return h.svc.Complete(c.Request().Context(), id)
-	}), jwtAuth, staffOnly, noStore)
+	}), jwtAuth, staffOnly, auditAction, noStore)
 }
 
 // requirePositiveIntQuery は必須の正整数クエリパラメータを検証するミドルウェア。不正なら 422。

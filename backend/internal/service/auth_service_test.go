@@ -307,7 +307,7 @@ func TestRefreshToken_RotatesToken(t *testing.T) {
 
 // REQ-003-AC-2: 不明・失効済み・期限切れはすべて ErrInvalidToken（区別しない）
 func TestRefreshToken_InvalidCases(t *testing.T) {
-	revokedAt := now.Add(-time.Minute)
+	revokedAt := now.Add(-time.Second) // 失効直後(grace 内)の再送は競合として拒否するだけ。再利用検知は別テスト
 	cases := map[string]func(e *env){
 		"不明": func(e *env) {
 			e.tokens.EXPECT().FindRefreshToken(mock.Anything, mock.Anything).Return(nil, repository.ErrNotFound)
@@ -730,4 +730,53 @@ func TestConfirmPasswordReset_UnlocksLoginLock(t *testing.T) {
 	e.tokens.EXPECT().SaveRefreshToken(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&domain.RefreshToken{}, nil)
 	_, err = e.svc.Login(context.Background(), "user@example.com", newPass)
 	assert.NoError(t, err, "本人確認済みのパスワード再設定でロックが解除される")
+}
+
+// S5: 失効済みトークンを grace 超過後に再利用したら盗用とみなし、全セッションを失効させる
+func TestRefreshToken_ReuseOfRevokedTokenRevokesAllSessions(t *testing.T) {
+	e := newEnv(t)
+	revokedAt := now.Add(-time.Minute)
+	tok := usableRefresh("h")
+	tok.RevokedAt = &revokedAt
+	e.tokens.EXPECT().FindRefreshToken(mock.Anything, mock.Anything).Return(tok, nil)
+	e.tokens.EXPECT().RevokeAllRefreshTokens(mock.Anything, userID).Return(int64(2), nil).Once()
+
+	pair, err := e.svc.RefreshToken(context.Background(), "raw")
+
+	assert.ErrorIs(t, err, service.ErrInvalidToken)
+	assert.Nil(t, pair)
+}
+
+// 全失効に失敗したら成功扱いにせずエラーを返す(盗用側を残さない)
+func TestRefreshToken_ReuseDetectionFailureIsReported(t *testing.T) {
+	e := newEnv(t)
+	revokedAt := now.Add(-time.Minute)
+	tok := usableRefresh("h")
+	tok.RevokedAt = &revokedAt
+	e.tokens.EXPECT().FindRefreshToken(mock.Anything, mock.Anything).Return(tok, nil)
+	boom := errors.New("db down")
+	e.tokens.EXPECT().RevokeAllRefreshTokens(mock.Anything, userID).Return(int64(0), boom)
+
+	_, err := e.svc.RefreshToken(context.Background(), "raw")
+
+	assert.ErrorIs(t, err, boom)
+}
+
+// S3: ロックはメール+IP 単位。攻撃者の IP が失敗を重ねても、本人の別 IP からのログインは通る
+func TestLogin_LockIsPerAccountAndIP(t *testing.T) {
+	e := newEnv(t)
+	e.tokens.EXPECT().SaveRefreshToken(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&domain.RefreshToken{}, nil)
+	attacker := service.WithClientIP(context.Background(), "203.0.113.9")
+	owner := service.WithClientIP(context.Background(), "198.51.100.7")
+	e.users.EXPECT().FindByEmail(mock.Anything, "user@example.com").Return(userWithPassword(t, goodPass), nil).Times(6)
+
+	for i := 0; i < 5; i++ {
+		_, err := e.svc.Login(attacker, "user@example.com", "WrongPassword!!")
+		require.ErrorIs(t, err, service.ErrInvalidCredentials)
+	}
+	_, err := e.svc.Login(attacker, "user@example.com", goodPass)
+	assert.ErrorIs(t, err, service.ErrTooManyAttempts, "攻撃元 IP はロックされる")
+
+	_, err = e.svc.Login(owner, "user@example.com", goodPass)
+	assert.NoError(t, err, "本人の別 IP は締め出されない")
 }

@@ -19,6 +19,8 @@ import (
 )
 
 const (
+	// refreshReuseGrace は、失効直後の再送を競合として許容する時間。これを超えた再利用は盗用とみなす。
+	refreshReuseGrace = 10 * time.Second
 	// DefaultBcryptCost は NFR(bcrypt cost >= 12)に従う既定値。
 	DefaultBcryptCost = 12
 	minPasswordRunes  = 12
@@ -138,6 +140,23 @@ func NewAuthService(users repository.UserRepository, tokens repository.TokenRepo
 	return s
 }
 
+type clientIPKey struct{}
+
+// WithClientIP はログイン試行の制限に使うクライアント IP を ctx に載せる。
+func WithClientIP(ctx context.Context, ip string) context.Context {
+	return context.WithValue(ctx, clientIPKey{}, ip)
+}
+
+// loginKey はログイン試行の制限キー。メール単位に IP を足し、他人のメールで失敗を重ねても
+// 本人を締め出せないようにする(別の IP からのログインはロックされない)。IP が無ければメールのみ。
+func loginKey(ctx context.Context, email string) string {
+	key := normalizeEmail(email)
+	if ip, _ := ctx.Value(clientIPKey{}).(string); ip != "" {
+		key += "|" + ip
+	}
+	return key
+}
+
 func normalizeEmail(e string) string { return strings.ToLower(strings.TrimSpace(e)) }
 
 func validatePassword(pw string) error {
@@ -170,16 +189,17 @@ func (s *authService) Register(ctx context.Context, in RegisterInput) (*domain.U
 	return u, nil
 }
 
-// Login: アカウント(正規化したメール)単位の試行制限つき。
+// Login: アカウント(正規化したメール)+クライアント IP 単位の試行制限つき。
 //   - 連続失敗でロック中は、正しいパスワードでも拒否し、DB にも触れない。
 //   - 未登録メールも同じ回数・同じ挙動でロックし、応答時間も揃える(存在を推測させない)。
 //   - インフラ障害による失敗は数えない。成功でカウントをリセットする。
 func (s *authService) Login(ctx context.Context, email, password string) (*TokenPair, error) {
-	key := normalizeEmail(email)
+	addr := normalizeEmail(email)
+	key := loginKey(ctx, email)
 	if blocked, retry := s.loginGuard.Blocked(key); blocked {
 		return nil, &TooManyAttemptsError{RetryAfter: retry}
 	}
-	u, err := s.users.FindByEmail(ctx, key)
+	u, err := s.users.FindByEmail(ctx, addr)
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
 		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(password))
@@ -236,6 +256,15 @@ func (s *authService) RefreshToken(ctx context.Context, raw string) (*TokenPair,
 		return nil, ErrInvalidToken
 	case err != nil:
 		return nil, err
+	}
+	if tok.RevokedAt != nil && s.now().Sub(*tok.RevokedAt) > refreshReuseGrace {
+		// 失効済みトークンの再利用 = 盗用の疑い。そのユーザーの全セッションを失効させる。
+		// 直後(grace 内)の再送は、複数タブの同時更新などの正規の競合として扱い、失効だけ拒否する。
+		if _, err := s.tokens.RevokeAllRefreshTokens(ctx, tok.UserID); err != nil {
+			return nil, err
+		}
+		s.log.Warn().Str("user_id", tok.UserID.String()).Msg("refresh token reuse detected; all sessions revoked")
+		return nil, ErrInvalidToken
 	}
 	if !tok.IsUsable(s.now()) {
 		return nil, ErrInvalidToken
@@ -350,7 +379,7 @@ func (s *authService) ConfirmPasswordReset(ctx context.Context, raw, newPassword
 	}
 	// 本人確認済みのパスワード再設定なので、ログイン失敗によるロックを解除する
 	if u, err := s.users.FindByID(ctx, tok.UserID); err == nil {
-		s.loginGuard.Reset(normalizeEmail(u.Email))
+		s.loginGuard.ResetAccount(normalizeEmail(u.Email))
 	}
 	return nil
 }

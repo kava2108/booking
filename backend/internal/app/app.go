@@ -3,6 +3,7 @@
 package app
 
 import (
+	"net"
 	"net/http"
 	"time"
 
@@ -37,6 +38,20 @@ type Deps struct {
 	Closures     service.ClosureService     // 休診・医師不在の設定（Tokens が必要）
 }
 
+// ipExtractor はクライアント IP の取り出し方を返す。
+// 既定は接続元をそのまま使う(X-Forwarded-For は偽装可能なため信用しない)。
+// リバースプロキシ配下では TRUSTED_PROXIES(CIDR)を設定し、そのプロキシが付けた X-Forwarded-For だけを信用する。
+func ipExtractor(trusted []*net.IPNet) echo.IPExtractor {
+	if len(trusted) == 0 {
+		return echo.ExtractIPDirect()
+	}
+	opts := make([]echo.TrustOption, 0, len(trusted))
+	for _, n := range trusted {
+		opts = append(opts, echo.TrustIPRange(n))
+	}
+	return echo.ExtractIPFromXFFHeader(opts...)
+}
+
 // New は Echo を組み立てる。
 func New(d Deps) *echo.Echo {
 	e := echo.New()
@@ -44,7 +59,7 @@ func New(d Deps) *echo.Echo {
 	e.HidePort = true
 	// X-Forwarded-For は偽装可能なためレートリミット等で信用しない。
 	// リバースプロキシ配下に置く場合は信頼するプロキシを明示して差し替える。
-	e.IPExtractor = echo.ExtractIPDirect()
+	e.IPExtractor = ipExtractor(d.Config.TrustedProxies)
 	e.Validator = handler.NewValidator()
 	e.HTTPErrorHandler = apierror.Handler()
 
@@ -60,6 +75,14 @@ func New(d Deps) *echo.Echo {
 			},
 		}),
 		echomw.BodyLimit("1M"),
+		// API は JSON のみ返すため、ブラウザに何も実行・埋め込みさせない。HSTS は TLS 接続(または信頼できる X-Forwarded-Proto)のときだけ付く。
+		echomw.SecureWithConfig(echomw.SecureConfig{
+			ContentTypeNosniff:    "nosniff",
+			XFrameOptions:         "DENY",
+			HSTSMaxAge:            31536000,
+			ContentSecurityPolicy: "default-src 'none'; frame-ancestors 'none'",
+			ReferrerPolicy:        "no-referrer",
+		}),
 	)
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -104,13 +127,19 @@ func New(d Deps) *echo.Echo {
 		qh.PatientRoutes(v1, jwt)
 		audit := middleware.AuditLog(d.Audit, "view_staff_queue", func(c echo.Context) string { return "department:" + c.QueryParam("department_id") })
 		auditAppts := middleware.AuditLog(d.Audit, "view_staff_appointments", func(c echo.Context) string { return "department:" + c.QueryParam("department_id") })
-		qh.StaffRoutes(v1.Group("/staff"), jwt, middleware.StaffOnly(), audit, auditAppts)
+		// 状態変更(来院受付・呼出・開始・完了)と代行受付も、誰がどの対象に行ったかを記録する(対象はリクエストパス)。
+		auditAction := middleware.AuditLog(d.Audit, "staff_queue_action", nil)
+		qh.StaffRoutes(v1.Group("/staff"), jwt, middleware.StaffOnly(), audit, auditAppts, auditAction)
 	}
 	if d.Closures != nil && d.Tokens != nil {
 		handler.NewClosureHandler(d.Closures).Routes(v1.Group("/staff"), middleware.JWTAuth(d.Tokens), middleware.StaffOnly())
 	}
 	if d.Admin != nil && d.Tokens != nil {
-		handler.NewAdminHandler(d.Admin).Routes(v1.Group("/admin"), middleware.JWTAuth(d.Tokens), middleware.AdminOnly())
+		var auditAdmin echo.MiddlewareFunc
+		if d.Audit != nil {
+			auditAdmin = middleware.AuditLog(d.Audit, "admin_update", nil) // 設定変更の記録(対象はリクエストパス)
+		}
+		handler.NewAdminHandler(d.Admin).Routes(v1.Group("/admin"), middleware.JWTAuth(d.Tokens), middleware.AdminOnly(), auditAdmin)
 	}
 	return e
 }

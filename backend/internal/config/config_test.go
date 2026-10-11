@@ -166,3 +166,20 @@ func TestLoad_InvalidLoginIPLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestLoad_TrustedProxies(t *testing.T) {
+	setRequired(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Empty(t, cfg.TrustedProxies, "既定は誰も信用しない")
+
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8, 172.16.0.0/12")
+	cfg, err = Load()
+	require.NoError(t, err)
+	assert.Len(t, cfg.TrustedProxies, 2)
+
+	t.Setenv("TRUSTED_PROXIES", "not-a-cidr")
+	_, err = Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TRUSTED_PROXIES")
+}
