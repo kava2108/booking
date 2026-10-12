@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>機能 — RacoReserve</title>
+<meta name="description" content="患者・受付スタッフ・管理者、それぞれの機能と、安全面の考え方を紹介します。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html">RacoReserve<small>クリニック予約・待ち時間</small></a>
+<nav class="site" aria-label="サイト内メニュー">
+<a href="index.html">概要</a>
+<a href="features.html" aria-current="page">機能</a>
+<a href="screens.html">画面集</a>
+<a href="status.html">提供状況</a>
+<a class="cta" href="https://www.rascal.biz/index.html#contact">お問い合わせ</a>
+</nav>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+<p class="eyebrow">機能</p>
+<h1>患者・受付・管理者、それぞれに必要な機能。</h1>
+<p class="lead">役割ごとに画面を分け、見える情報も分けています。権限の判定は画面ではなく、サーバー（API）が行います。</p>
+</div></div>
+
+<section><div class="wrap">
+<h2>患者さん</h2>
+<p class="sub">ログインなしで待ち時間、ログインして予約。</p>
+<div class="grid g2">
+<div class="card"><h3>待ち時間ボード</h3><p>診療科ごとに、お待ちの人数と待ち時間の目安を表示します。診察実績が足りないときや診療時間外は、理由だけを表示し、数字は出しません。</p></div>
+<div class="card"><h3>予約</h3><p>診療科・医師（任意）・日付から、空き枠を一覧。満席・休診・受付締切後の枠は、理由つきで選べない状態になります。初診／再診と症状メモを添えられます。</p></div>
+<div class="card"><h3>マイページ</h3><p>予約の確認、日時の変更、キャンセル。キャンセル期限を過ぎると、画面上で案内します。</p></div>
+<div class="card"><h3>順番の確認</h3><p>来院受付後は「前に何人」と呼出の見込みが分かります。順番が近づくと通知（メール連携後）が届く設計です。</p></div>
+<div class="card"><h3>当日受付</h3><p>予約なしでも、当日受付で待機列に並べます。診療科ごとに締切時刻と定員を設定できます。</p></div>
+<div class="card"><h3>アカウント</h3><p>新規登録、ログイン、パスワードの再設定。ログイン状態は HttpOnly Cookie のトークンで維持します。</p></div>
+</div>
+<figure style="margin-top:28px">
+<div class="shot"><img src="img/booking-dialog.png" alt="予約確認のダイアログ" loading="lazy"></div><figcaption><b>予約の確定</b>　初診／再診と症状を添えて確定します。</figcaption>
+</figure>
+</div></section>
+
+<section class="alt"><div class="wrap">
+<h2>受付スタッフ</h2>
+<p class="sub">予約も当日受付も、ひとつの列で。</p>
+<div class="grid g2">
+<div class="card"><h3>当日の予約</h3><p>その日の予約を診療科ごとに一覧。患者さんが来たら、ワンクリックで来院受付。</p></div>
+<div class="card"><h3>待機列</h3><p>受付順に並び、呼出 → 診察開始 → 診察完了と進めます。予約は予約時刻と来院時刻の遅いほうで並びます。</p></div>
+<div class="card"><h3>当日受付の代行</h3><p>電話や窓口で受け付けた方を、アカウントなしでも登録できます。氏名はスタッフ画面にだけ表示します。</p></div>
+<div class="card"><h3>休診の設定</h3><p>医師の不在や臨時休診の期間を指定すると、該当する枠を受付停止にし、予約済みの方へ通知を作ります。</p></div>
+</div>
+</div></section>
+
+<section><div class="wrap">
+<h2>クリニック管理者</h2>
+<div class="grid g2" style="margin-top:20px">
+<div class="card"><h3>診療スケジュール</h3><p>医師ごとに、曜日・開始／終了・1枠の長さ・定員を設定。午前と午後のように、同じ曜日に複数の時間帯を置けます（重なりは保存前に検出）。保存すると枠が自動生成されます。</p></div>
+<div class="card"><h3>基本設定</h3><p>予約受付期間（日数）、キャンセル期限（分）、診療科ごとの標準診察時間・当日受付の締切・定員。</p></div>
+</div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+<h2>待ち時間の計算</h2>
+<p class="sub">数字を出すときは、根拠があるときだけ。</p>
+<div class="grid g3">
+<div class="card"><h3>実績ベース</h3><p>その日の診察完了の実績から、1人あたりの診察時間を求め、前に並ぶ人数と診察中の医師数から目安を出します。</p></div>
+<div class="card"><h3>標準時間ベース</h3><p>実績がまだ少ないときは、診療科ごとの標準診察時間を使い、「目安」であることを表示します。</p></div>
+<div class="card"><h3>出さない場合</h3><p>診療開始前・休診中・診察実績が不足しているときは、理由を表示するだけで、推測の数字は出しません。</p></div>
+</div>
+</div></section>
+
+<section><div class="wrap">
+<h2>安全面の考え方</h2>
+<div class="scroll"><table>
+<thead><tr><th>観点</th><th>内容</th></tr></thead>
+<tbody>
+<tr><th>権限</th><td>患者／スタッフ／クリニック管理者の3役割。画面の出し分けは利便性のためで、認可の判定は API が行います。</td></tr>
+<tr><th>個人情報</th><td>氏名・症状メモは、本人とスタッフにだけ返します。公開の待ち時間 API には個人を特定できる情報を含めません。</td></tr>
+<tr><th>監査ログ</th><td>スタッフによる氏名・症状の閲覧や、重要な操作を記録します。</td></tr>
+<tr><th>二重予約・定員超過</th><td>枠の定員は単一の条件付き更新で守り、データベースの制約を最終防壁にしています。</td></tr>
+<tr><th>連続ログイン失敗・過剰アクセス</th><td>ログインや公開 API には、回数制限をかけています。</td></tr>
+<tr><th>レビュー</th><td>敵対的なセキュリティレビュー（S1〜S5）の指摘に対応済みです。外部の第三者による診断は、まだ受けていません。</td></tr>
+</tbody></table></div>
+</div></section>
+</main>
+<footer class="site"><div class="wrap">
+<p>RacoReserve（クリニック予約・待ち時間管理）の紹介サイトです。<a href="https://www.rascal.biz/index.html#contact">お問い合わせはこちら</a></p>
+<p>画面に表示される会社・施設・人物・データは、すべて架空です。</p>
+</div></footer>
+</body>
+</html>

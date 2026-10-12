@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>提供状況 — RacoReserve</title>
+<meta name="description" content="RacoReserve で、いまできること、これからのことを、正直にまとめています。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html">RacoReserve<small>クリニック予約・待ち時間</small></a>
+<nav class="site" aria-label="サイト内メニュー">
+<a href="index.html">概要</a>
+<a href="features.html">機能</a>
+<a href="screens.html">画面集</a>
+<a href="status.html" aria-current="page">提供状況</a>
+<a class="cta" href="https://www.rascal.biz/index.html#contact">お問い合わせ</a>
+</nav>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+<p class="eyebrow">提供状況</p>
+<h1>いまできること、これからのこと。</h1>
+<p class="lead">開発中のため、公開前です。機能の状態を、できる限り正確に書いています（2026年10月12日時点）。</p>
+</div></div>
+<section><div class="wrap">
+<div class="scroll"><table>
+<thead><tr><th>項目</th><th>状態</th><th>補足</th></tr></thead>
+<tbody>
+<tr><td>予約・日時変更・キャンセル</td><td><span class="tag ok">実装済み</span></td><td>キャンセル期限は管理画面で設定。日時変更の自動テスト（E2E）は未整備です。</td></tr>
+<tr><td>待ち時間ボード・順番表示</td><td><span class="tag ok">実装済み</span></td><td>実績または標準診察時間から計算。</td></tr>
+<tr><td>来院受付・待機列・当日受付</td><td><span class="tag ok">実装済み</span></td><td>予約・窓口・電話代行を同じ列で管理。</td></tr>
+<tr><td>休診・医師不在の設定</td><td><span class="tag ok">実装済み</span></td><td>該当枠を受付停止にし、通知を作成。</td></tr>
+<tr><td>診療スケジュール・受付ルール</td><td><span class="tag ok">実装済み</span></td><td>管理者のみ。</td></tr>
+<tr><td>権限・監査ログ</td><td><span class="tag ok">実装済み</span></td><td>敵対的レビューの指摘（S1〜S5）に対応済み。</td></tr>
+<tr><td>自動テスト</td><td><span class="tag ok">実施中</span></td><td>単体テスト・ブラウザ E2E（Playwright）を CI で実行。</td></tr>
+<tr><td>メールの実送信・リマインド</td><td><span class="tag plan">これから</span></td><td>通知を溜める仕組み（アウトボックス）までが実装済みで、実送信の本番確認が未了です。</td></tr>
+<tr><td>本番環境への配備</td><td><span class="tag plan">これから</span></td><td>配備用の構成（Dockerfile など）は未整備です。</td></tr>
+<tr><td>期限超過時の連絡先表示</td><td><span class="tag plan">これから</span></td><td>電話番号の表示方法は未決定です。</td></tr>
+</tbody></table></div>
+<div class="note" style="margin-top:24px">提供方法（自社環境への導入／ご利用型）は未確定です。確定しだい、このページに掲載します。</div>
+<div class="btns" style="margin-top:24px"><a class="btn primary" href="https://www.rascal.biz/index.html#contact">お問い合わせはこちら</a></div>
+</div></section>
+</main>
+<footer class="site"><div class="wrap">
+<p>RacoReserve（クリニック予約・待ち時間管理）の紹介サイトです。<a href="https://www.rascal.biz/index.html#contact">お問い合わせはこちら</a></p>
+<p>画面に表示される会社・施設・人物・データは、すべて架空です。</p>
+</div></footer>
+</body>
+</html>

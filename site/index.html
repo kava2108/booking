@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RacoReserve — クリニックの予約と待ち時間</title>
+<meta name="description" content="診察の予約、当日受付、待ち時間の見える化、受付スタッフの待機列管理をひとつにした、クリニック向けの予約アプリです。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="index.html">RacoReserve<small>クリニック予約・待ち時間</small></a>
+<nav class="site" aria-label="サイト内メニュー">
+<a href="index.html" aria-current="page">概要</a>
+<a href="features.html">機能</a>
+<a href="screens.html">画面集</a>
+<a href="status.html">提供状況</a>
+<a class="cta" href="https://www.rascal.biz/index.html#contact">お問い合わせ</a>
+</nav>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+<p class="eyebrow">クリニック向け 予約・待ち時間管理</p>
+<h1>電話と紙の受付簿を、<br>ブラウザの中で、ひとつの流れに。</h1>
+<p class="lead">患者さんは、空いている時間を見てそのまま予約。来院したら順番と待ち時間の目安が分かる。受付スタッフは、予約も当日受付もひとつの待機列で呼び出せる。RacoReserve は、診察の「予約から診察完了まで」を一本につなぎます。</p>
+<div class="btns">
+<a class="btn primary" href="features.html">機能を見る</a>
+<a class="btn" href="screens.html">画面集を見る</a>
+<a class="btn" href="status.html">提供状況</a>
+</div>
+<figure><div class="shot"><img src="img/home.png" alt="診療科ごとの待ち時間と待っている人数を表示するトップ画面" loading="lazy"></div><figcaption><b>待ち時間ボード</b>　未ログインでも見られます。診療科ごとの人数と待ち時間の目安だけを表示し、個人は特定できません。</figcaption></figure>
+</div></div>
+
+<section><div class="wrap">
+<h2>こんな「困りごと」は、ありませんか</h2>
+<p class="sub">予約の電話で受付が手一杯。待合室がどれだけ混んでいるか、来てみるまで分からない。</p>
+<div class="grid g3">
+<div class="card"><div class="icon">📞</div><h3>電話が鳴りっぱなし</h3><p>予約の受付・変更・キャンセルの電話で、来院した患者さんの対応が後回しになる。</p></div>
+<div class="card"><div class="icon">📒</div><h3>予約と当日受付が別管理</h3><p>予約簿と受付順の紙が別々で、呼び出す順番を頭の中で並べ替えている。</p></div>
+<div class="card"><div class="icon">⏳</div><h3>待ち時間を聞かれる</h3><p>「あと何分ですか」に、その場の感覚でしか答えられない。</p></div>
+<div class="card"><div class="icon">🚪</div><h3>無断キャンセル</h3><p>前日のリマインドができず、空いた枠をそのまま無駄にしてしまう。</p></div>
+<div class="card"><div class="icon">🏥</div><h3>急な休診の連絡</h3><p>医師の不在が決まっても、予約済みの患者さん全員に伝えるのが大変。</p></div>
+<div class="card"><div class="icon">🔒</div><h3>個人情報が心配</h3><p>氏名や症状のメモを、誰でも見られる場所に置きたくない。</p></div>
+</div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+<h2>4つの特長</h2>
+<p class="sub">必要なことを、必要な人にだけ。</p>
+<div class="grid g2">
+<div class="card"><span class="num">1</span><h3>空き枠が見えて、そのまま予約</h3><p>診療科・医師・日付を選ぶと、満席や休診も含めて枠が並びます。二重予約や定員超過は、サーバー側で防ぎます。</p></div>
+<div class="card"><span class="num">2</span><h3>予約も当日受付も、ひとつの待機列</h3><p>予約の来院受付、窓口での当日受付、電話での代行受付が同じ列に並び、呼出 → 診察開始 → 完了と進みます。</p></div>
+<div class="card"><span class="num">3</span><h3>待ち時間は、実績から計算</h3><p>その日の診察実績をもとに目安を出します。実績が足りないときは、推測せず「算出できません」と表示します。</p></div>
+<div class="card"><span class="num">4</span><h3>権限と記録</h3><p>患者・受付スタッフ・クリニック管理者で見える範囲を分けます。氏名・症状の閲覧は監査ログに残ります。</p></div>
+</div>
+</div></section>
+
+<section><div class="wrap">
+<h2>診察の流れが、そのまま画面になります</h2>
+<p class="sub">予約から診察完了まで。患者さん側とスタッフ側が同じデータを見ています。</p>
+<div class="flow" aria-label="診察の流れ">
+<div>予約（患者）</div><span>→</span><div>前日リマインド</div><span>→</span><div>来院受付（スタッフ）</div><span>→</span><div>待機列</div><span>→</span><div>呼出</div><span>→</span><div>診察中</div><span>→</span><div>完了</div>
+</div>
+<div class="pair">
+<figure><div class="shot"><img src="img/staff-queue.png" alt="受付スタッフ用の待機列画面" loading="lazy"></div><figcaption><b>待機列</b>　予約の来院受付と当日受付が同じ列に並びます。症状メモはスタッフにだけ見えます。</figcaption></figure><figure><div class="shot"><img src="img/mypage.png" alt="患者のマイページ。予約一覧と順番の表示" loading="lazy"></div><figcaption><b>マイページ</b>　自分の予約と、来院後は「あと何人」「呼出の見込み」を確認できます。</figcaption></figure>
+</div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+<h2>3ステップで、使い始められます</h2>
+<div class="grid g3" style="margin-top:20px">
+<div class="card"><span class="num">1</span><h3>診療時間を決める</h3><p>管理画面で、医師ごとの曜日・時間帯・1枠の長さ・定員を設定します。枠は自動で作られます。</p></div>
+<div class="card"><span class="num">2</span><h3>予約の決まりを決める</h3><p>受付期間、キャンセル期限、診療科ごとの標準診察時間と当日受付の締切を設定します。</p></div>
+<div class="card"><span class="num">3</span><h3>患者さんに案内する</h3><p>URL を伝えるだけです。アカウント登録なしでも、待ち時間ボードは見られます。</p></div>
+</div>
+<p style="margin-top:20px"><a href="features.html">機能の詳細を見る →</a></p>
+</div></section>
+
+<section><div class="wrap">
+<h2>画面で見る</h2>
+<p class="sub">デモデータは、平日の午前 9:00〜12:00・午後 14:00〜17:30 の診療を想定しています。</p>
+<div class="pair">
+<figure><div class="shot"><img src="img/reserve.png" alt="診療科と日付を選んで空き枠を選ぶ予約画面" loading="lazy"></div><figcaption><b>予約する</b>　診療科と日付を選ぶと、空き枠が一覧で出ます。</figcaption></figure><figure><div class="shot"><img src="img/admin-schedule.png" alt="医師ごとの診療スケジュールを編集する管理画面" loading="lazy"></div><figcaption><b>診療スケジュール（管理画面）</b>　午前・午後に分けて、曜日ごとに設定します。</figcaption></figure>
+</div>
+<p style="margin-top:20px"><a href="screens.html">画面集をすべて見る →</a></p>
+</div></section>
+
+<section class="alt"><div class="wrap">
+<h2>段階的に、広げられます</h2>
+<div class="grid g2" style="margin-top:20px">
+<div class="card"><span class="num">1</span><h3>1つの診療科で試す</h3><p>まず内科だけ。予約と待ち時間ボードから始めます。</p></div>
+<div class="card"><span class="num">2</span><h3>受付の運用に載せる</h3><p>来院受付と待機列を、受付スタッフの普段の流れに置き換えます。</p></div>
+<div class="card"><span class="num">3</span><h3>診療科を増やす</h3><p>小児科・整形外科など、診療科ごとに標準診察時間と締切を設定します。</p></div>
+<div class="card"><span class="num">4</span><h3>通知と運用を整える</h3><p>リマインドや休診の通知を、メール配信とつないで運用します（準備中）。</p></div>
+</div>
+</div></section>
+
+<section><div class="wrap">
+<h2>正直な、現状のお知らせ</h2>
+<p class="sub">できることと、まだできないことを分けて書いています。</p>
+<div class="pair">
+<div class="card"><h3><span class="tag ok">いまできること</span></h3><ul class="list">
+<li>予約・日時変更・キャンセル（キャンセル期限つき）</li>
+<li>待ち時間ボード、来院後の順番表示</li>
+<li>来院受付・当日受付（本人／スタッフ代行）・呼出・診察の記録</li>
+<li>休診・医師不在の設定と、該当枠の受付停止</li>
+<li>診療スケジュール・受付ルールの管理</li>
+</ul></div>
+<div class="card"><h3><span class="tag plan">これから</span></h3><ul class="list">
+<li>メールの実送信（通知の仕組みまでは実装済み）</li>
+<li>本番環境への配備構成</li>
+<li>キャンセル期限を過ぎたときの連絡先（電話番号）の表示</li>
+</ul></div>
+</div>
+<p style="margin-top:16px"><a href="status.html">提供状況の詳細 →</a></p>
+</div></section>
+
+<section class="alt"><div class="wrap">
+<h2>まずは、1 つの診療科から。</h2>
+<p>導入のご相談や、デモのご希望は、お気軽にお問い合わせください。</p>
+<div class="btns"><a class="btn primary" href="https://www.rascal.biz/index.html#contact">お問い合わせはこちら</a></div>
+</div></section>
+</main>
+<footer class="site"><div class="wrap">
+<p>RacoReserve（クリニック予約・待ち時間管理）の紹介サイトです。<a href="https://www.rascal.biz/index.html#contact">お問い合わせはこちら</a></p>
+<p>画面に表示される会社・施設・人物・データは、すべて架空です。</p>
+</div></footer>
+</body>
+</html>
